@@ -1,0 +1,48 @@
+Project Objective: Build a professional, vibrant, and secure "Engage-to-Earn" Android Mobile Application using React Native (Expo) for the frontend and Firebase Firestore for the database. To keep the onboarding frictionless, DO NOT use Firebase Authentication. Instead, auto-generate or fetch a unique Device ID (using expo-application or expo-secure-store) on the first launch to uniquely identify and track each user's data.
+
+### 1. TECH STACK & ARCHITECTURE
+- Frontend: React Native with Expo (Managed Workflow), React Navigation.
+- Device Tracking: Use expo-application (Android ID) or expo-secure-store to generate a persistent unique `deviceId` for the user.
+- UI Components: React Native Paper, Lucide-React-Native icons, and React Native Lottie for animations.
+- Backend/Database: Firebase Firestore Cloud Database (No Firebase Auth).
+- Server-side (Replit): Node.js with Express.js to host a secure Webhook/Callback API endpoint for Offerwall rewards.
+- Environment Variables: All sensitive IDs and keys must use process.env via Replit Secrets.
+
+### 2. CORE FEATURES & UI SCREENS (Vibrant & Colorful Aesthetic)
+- Splash Screen: Checks if the `deviceId` exists in local storage. If not, creates one, registers a new document in Firestore with 0 coins, and navigates to the Dashboard.
+- Main Dashboard:
+  - Header showing User Device/Account ID, Live Coins Balance, and equivalent PKR Balance (Formula: 1000 Coins = 20 PKR).
+  - "Daily Check-in" button (rewarding 50 coins once every 24 hours, tracked via Firestore timestamp tied to the deviceId).
+  - Navigation cards/buttons for Games, Offerwalls, and Wallet.
+- Mini-Games Screen:
+  - Spin the Wheel: A fully functional graphical wheel using JavaScript rotation logic. Max 10 spins per day. Trigger an Interstitial Ad after every 2 spins.
+  - Scratch Card: A canvas-based scratch element that reveals random rewards (10 to 50 coins) upon 80% scratch completion. Max 10 cards per day.
+- Offerwall Screen:
+  - A responsive WebView component rendering the Monlix Offerwall URL dynamically containing the user's unique `deviceId` as the tracking parameter.
+- Wallet & Withdrawal Screen:
+  - Display current cash balance.
+  - Input form: Select Method (Dropdown: Easypaisa / JazzCash), Account Number, Account Title, Amount to Withdraw.
+  - "Submit Request" button: Validates minimum withdrawal limit (e.g., 500 PKR) and checks if the user has sufficient balance.
+  - Transaction History List: Shows previous requests, amounts, dates, and statuses (Pending / Approved) submitted by this deviceId.
+
+### 3. DATABASE SCHEMAS (Firestore Collections)
+- `users` Collection:
+  - Fields: { deviceId, coinsBalance, pkrBalance, lastCheckInTimestamp, dailySpinsUsed, dailyScratchUsed, createdAt }
+- `withdrawals` Collection:
+  - Fields: { withdrawalId, deviceId, paymentMethod, accountNumber, accountTitle, amountPKR, status: "pending", timestamp }
+
+### 4. EARNING INTEGRATIONS & WEBHOOK (CRITICAL)
+- Unity Ads Integration:
+  - Initialize Unity Ads SDK using Unity Game ID from environment variables.
+  - Set up listeners for Rewarded Video Ads (give coins upon full completion) and Interstitial Ads.
+- Monlix Webhook API Endpoint:
+  - In the Replit backend, set up an Express route: `POST /api/monlix-webhook`.
+  - The route must listen for incoming secure reward validation pings from Monlix.
+  - Upon receiving a valid ping: Extract `userId` (which represents the deviceId) and `rewardAmount`, query the Firestore `users` collection by deviceId, increment the corresponding user's `coinsBalance`, and return a 200 success response to Monlix.
+
+### 5. SECURITY & ANTI-CHEAT RULES
+- Enforce basic server-side validation: Users cannot increment their own coin balances directly from the client side without an authorized event (Ad completed or Webhook validated).
+- Add basic click-spamming protection (debounce) on all reward buttons.
+- Ensure the app uses secure environment variables for Firebase configuration, Unity Placement IDs, and Monlix Secret tokens.
+
+Please set up the folder structure systematically, install the necessary npm packages (firebase, expo-secure-store, expo-application, react-native-webview, express, etc.), and generate the template code for both the mobile app and the backend webhook server.

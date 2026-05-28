@@ -1,0 +1,72 @@
+modules = ["nodejs-24"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[[ports]]
+localPort = 3000
+externalPort = 3003
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 8082
+externalPort = 3001
+
+[[ports]]
+localPort = 8083
+externalPort = 4200
+
+[[ports]]
+localPort = 8084
+externalPort = 5000
+
+[[ports]]
+localPort = 18115
+externalPort = 3000
+
+[[ports]]
+localPort = 18116
+externalPort = 3002
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_FIREBASE_API_KEY = "AIzaSyDKZ2r_nUazX6GjHnpxoKBAq5kho2uJEiY"
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN = "earn-daily-17b83.firebaseapp.com"
+EXPO_PUBLIC_FIREBASE_PROJECT_ID = "earn-daily-17b83"
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET = "earn-daily-17b83.firebasestorage.app"
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "129882609057"
+EXPO_PUBLIC_FIREBASE_APP_ID = "1:129882609057:web:4b0237e2eb5370c73d67e0"
+EXPO_PUBLIC_API_BASE_URL = "https://532b23b6-22c6-48a7-958c-52b474c385e3-00-3rd6ny0ltx7ij.sisko.replit.dev:3003"
+MONLIX_COINS_PER_USD = "5000"
+AYET_COINS_PER_USD = "5000"
+AYET_USD_TO_COINS = "5000"
+TAPJOY_COINS_PER_USD = "5000"
+PUBSCALE_COINS_PER_USD = "5000"
+
+[userenv.development]
+
+[userenv.production]

@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "Rrqd1E4P3eRkaAvxgv07u"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "engage to earn app icon"
+
+[[generated]]
+id = "WXraQo3-3J7HaPr3TLsGc"
+uri = "file://artifacts/mobile/assets/images/splash.png"
+type = "image"
+title = "splash screen background"

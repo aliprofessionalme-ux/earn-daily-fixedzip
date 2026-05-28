@@ -1,0 +1,806 @@
+I have an Expo React Native + Express + Firebase Firestore Engage-to-Earn mobile app.
+
+The app already has:
+- Dashboard
+- Daily check-in
+- Spin wheel
+- Scratch card
+- Offerwall screen
+- Wallet screen
+- Easypaisa/JazzCash withdrawal form
+- Withdrawal history
+- Express API server
+- Firebase Admin SDK backend
+- Firebase client SDK mobile app
+
+I want you to fix all missing production-level features, security issues, anti-fraud systems, wallet logic, admin tools, and game UI problems.
+
+Do NOT focus on Monlix App ID setup right now. Ignore Monlix App ID value. Keep Monlix screen/webhook structure, but do not ask me for Monlix ID.
+
+Main goal:
+Make this reward earning app safe for real users, so users cannot cheat coins, VPN/proxy users cannot abuse earning, one mobile cannot create multiple earning accounts, withdrawal rules are enforced, admin can approve/reject payouts, and all balances are handled securely from backend only.
+
+IMPORTANT RULE:
+Mobile app must NOT directly update coins, PKR balance, withdrawal status, daily spin count, daily scratch count, check-in reward, ledger entries, or any sensitive reward/wallet field in Firestore.
+
+All reward, wallet, withdrawal, fraud, and balance operations must go through Express backend APIs using Firebase Admin SDK.
+
+Please implement the following:
+
+====================================================
+1. Move all coin/reward logic to backend only
+====================================================
+
+Currently mobile app directly uses Firebase client SDK functions like:
+- performCheckIn
+- performSpin
+- performScratch
+- submitWithdrawalRequest
+
+Replace these with backend API calls.
+
+Required backend endpoints:
+- POST /api/users/init
+- GET /api/users/:deviceId
+- POST /api/users/:deviceId/checkin
+- POST /api/users/:deviceId/spin
+- POST /api/users/:deviceId/scratch
+- GET /api/users/:deviceId/withdrawals
+- POST /api/users/:deviceId/withdrawals
+- GET /api/users/:deviceId/transactions
+- POST /api/users/:deviceId/support
+- GET /api/users/:deviceId/support
+
+Mobile app should call these endpoints instead of directly writing to Firestore.
+
+====================================================
+2. Server must decide spin and scratch rewards
+====================================================
+
+Do not accept coinsWon from client.
+
+Bad current behavior:
+Client decides coinsWon and sends it to backend or updates Firestore.
+
+Correct behavior:
+- User taps spin
+- Mobile sends only deviceId/request/device fingerprint info
+- Backend checks daily limit
+- Backend checks banned/fraud/VPN status
+- Backend validates device/user
+- Backend randomly decides reward using secure backend logic
+- Backend updates Firestore in a transaction
+- Backend returns reward result
+
+For spin:
+- Use reward segments: 5, 10, 20, 25, 50, 100 coins
+- Use weighted probability so big rewards are rare
+- Example probability:
+  - 5 coins: 30%
+  - 10 coins: 25%
+  - 20 coins: 20%
+  - 25 coins: 12%
+  - 50 coins: 10%
+  - 100 coins: 3%
+
+For scratch:
+- Use reward range: 10, 15, 20, 25, 30, 50 coins
+- Backend decides result
+- Big rewards should be rare
+
+====================================================
+3. Fix daily limit mismatch
+====================================================
+
+Currently frontend has DAILY_SPIN_LIMIT = 5 but backend says max 10/day.
+
+Make the whole app consistent:
+- Spin limit: 5 per day
+- Scratch limit: 5 per day
+- Check-in: once every 24 hours
+
+Update:
+- Backend
+- Mobile UI
+- Text labels
+- Error messages
+- Button disabled states
+- Firestore user fields
+
+====================================================
+4. Add strong anti-fraud protection
+====================================================
+
+This is very important because I do not want my ad/reward network accounts to be banned due to fake traffic, VPN abuse, proxy abuse, bots, or duplicate accounts.
+
+Implement anti-fraud protection in backend and mobile app.
+
+A. VPN / Proxy detection
+
+Add VPN/proxy detection to the backend.
+
+Behavior:
+- If VPN/proxy/datacenter IP is detected, user should not be able to:
+  - check-in
+  - spin
+  - scratch
+  - earn offerwall rewards
+  - submit withdrawal
+- Show this message in app:
+  "VPN/Proxy usage is not allowed. Please disable VPN to continue."
+- Save a fraud log every time VPN/proxy is detected.
+- Increase user's suspiciousScore.
+- If repeated VPN/proxy attempts happen, auto-ban the user/account/device.
+
+Implementation:
+- Add optional VPN/proxy checking service.
+- Use environment variable for provider API key if needed.
+- Example env names:
+  - IP_REPUTATION_API_KEY=
+  - VPN_CHECK_PROVIDER=
+- If no provider key exists, keep the structure ready and use safe fallback logic.
+- Do not crash if VPN provider API fails.
+- Log provider failure safely.
+
+B. One mobile = one earning account rule
+
+Implement strict duplicate account prevention.
+
+Required:
+- Generate and store a stable device fingerprint / install ID / device identity.
+- Use the strongest practical device identity available in Expo/React Native.
+- Store deviceFingerprint in backend with user.
+- If the same device tries to create another earning account:
+  - do not create a second earning account
+  - restore the existing account if possible
+  - or block the duplicate account attempt
+- If a user clears app data or reinstalls and tries to make a new account on the same phone, detect and prevent duplicate earning accounts as much as technically possible.
+- If repeated duplicate account attempts happen:
+  - increase suspiciousScore
+  - create fraud log
+  - auto-ban if threshold is reached
+
+Important:
+Do not rely only on weak random deviceId.
+Use a combination of:
+- install ID
+- secure storage
+- device information
+- platform info
+- model/manufacturer where available
+- backend IP/user-agent/device fingerprint history
+- Firebase Anonymous Auth UID if added
+- App Check if possible
+
+Explain in final output what is possible and what is not 100% possible due to mobile OS privacy restrictions.
+
+C. Emulator / rooted / suspicious device detection
+
+Add checks where possible for:
+- emulator
+- rooted/jailbroken device indicators
+- suspicious device
+- automation/bot-like behavior
+
+If detected:
+- block earning actions or mark account as under review
+- increase suspiciousScore
+- create fraud log
+
+D. Abuse detection
+
+Add protection against:
+- too many reward requests in short time
+- too many withdrawal attempts
+- impossible earning patterns
+- repeated failed validations
+- repeated VPN/proxy attempts
+- duplicate offerwall transactions
+- multiple account attempts from same device
+- repeated account creation from same IP/device
+
+Add fields in user document:
+- isBanned: boolean
+- banReason
+- bannedAt
+- suspiciousScore
+- deviceInfo
+- deviceFingerprint
+- installId
+- lastIP
+- lastUserAgent
+- fraudFlags
+- lastActiveAt
+- createdAt
+- updatedAt
+
+Backend should block:
+- check-in
+- spin
+- scratch
+- withdrawal
+- offerwall reward credit
+
+if user is banned.
+
+E. Rate limiting and middleware
+
+Add Express middleware:
+- request validation
+- rate limiting
+- CORS restricted to allowed origins
+- JSON body size limit
+- safe error responses
+- suspicious activity logging
+
+====================================================
+5. Add reward ledger / transaction history
+====================================================
+
+Create a Firestore collection called coinTransactions or ledger.
+
+Every coin change must be recorded.
+
+Each transaction should include:
+- transactionId
+- deviceId/userId
+- type: checkin | spin | scratch | offerwall | withdrawal_hold | withdrawal_refund | admin_adjustment
+- coinsChange
+- pkrChange if applicable
+- balanceAfterCoins
+- balanceAfterPKR
+- source
+- status
+- createdAt
+- metadata
+
+Examples:
+- check-in gives +50 coins
+- spin gives +20 coins
+- scratch gives +10 coins
+- withdrawal deducts coins
+- rejected withdrawal refunds coins
+
+Add a mobile screen or section where user can see recent earning transactions.
+
+====================================================
+6. Fix conversion rate everywhere
+====================================================
+
+Use one conversion rate everywhere:
+
+1000 coins = PKR 20
+
+Make sure this is consistent in:
+- Dashboard
+- Wallet
+- Terms card
+- Backend coinsToPKR function
+- Withdrawal calculation
+- Any text in app
+
+Remove wrong text like:
+1000 Coins = 100 PKR
+
+====================================================
+7. Add app settings collection
+====================================================
+
+Create a Firestore collection/document for app settings, for example:
+settings/app
+
+Fields:
+- coinRateCoins: 1000
+- coinRatePKR: 20
+- minimumWithdrawalPKR: 500
+- spinDailyLimit: 5
+- scratchDailyLimit: 5
+- checkInCoins: 50
+- withdrawalDayText: "Payments are processed manually on schedule"
+- maintenanceMode: false
+- blockVPNUsers: true
+- oneDeviceOneAccount: true
+- autoBanOnRepeatedFraud: true
+- suspiciousScoreAutoBanThreshold: 100
+- vpnViolationScore: 25
+- duplicateDeviceScore: 50
+
+Backend should read settings from Firestore. If settings are missing, use safe defaults.
+
+====================================================
+8. Secure withdrawal system
+====================================================
+
+Improve withdrawal request logic.
+
+Rules:
+- Minimum withdrawal: PKR 500
+- User cannot withdraw more than available PKR balance
+- User can submit only one pending withdrawal at a time
+- User can submit only one withdrawal per calendar month
+- Deduct coins immediately when withdrawal is submitted
+- Create withdrawal status: pending
+- If admin rejects withdrawal, refund deducted coins automatically
+- If admin approves, do not refund
+- If admin marks paid, keep final paid status
+- Keep withdrawal history
+
+Withdrawal document should include:
+- withdrawalId
+- deviceId/userId
+- paymentMethod: Easypaisa | JazzCash
+- accountNumber
+- accountTitle
+- amountPKR
+- coinsDeducted
+- status: pending | approved | rejected | paid
+- adminNote
+- rejectionReason
+- createdAt
+- updatedAt
+- processedAt
+- paidAt
+
+====================================================
+9. Add admin panel
+====================================================
+
+Create an admin panel inside the project.
+
+It can be a simple React web admin or protected route.
+
+Admin features:
+- Admin login using password from environment variable ADMIN_PASSWORD or Firebase Auth custom claim
+- View dashboard stats:
+  - total users
+  - total coins issued
+  - total PKR liability
+  - pending withdrawals count
+  - pending withdrawal amount
+  - approved withdrawals
+  - rejected withdrawals
+  - paid withdrawals
+  - banned users count
+  - suspicious users count
+  - VPN violation count
+- View all pending withdrawals
+- Approve withdrawal
+- Reject withdrawal with reason
+- Mark withdrawal as paid
+- Search withdrawal by deviceId/account number
+- View user details
+- Ban/unban user
+- Manually adjust coins with reason
+- View coin transaction ledger
+- View fraud logs
+- View VPN/proxy violation logs
+- View duplicate account/device attempts
+- View support tickets
+
+Admin-only backend endpoints:
+- GET /api/admin/stats
+- GET /api/admin/users
+- GET /api/admin/users/:deviceId
+- POST /api/admin/users/:deviceId/ban
+- POST /api/admin/users/:deviceId/unban
+- POST /api/admin/users/:deviceId/adjust-coins
+- GET /api/admin/withdrawals
+- POST /api/admin/withdrawals/:withdrawalId/approve
+- POST /api/admin/withdrawals/:withdrawalId/reject
+- POST /api/admin/withdrawals/:withdrawalId/mark-paid
+- GET /api/admin/transactions
+- GET /api/admin/fraud-logs
+- GET /api/admin/support
+- POST /api/admin/support/:ticketId/reply
+- POST /api/admin/support/:ticketId/close
+
+Protect all admin routes.
+
+====================================================
+10. Add banned/suspicious user system
+====================================================
+
+User document should have:
+- isBanned: boolean
+- banReason
+- bannedAt
+- suspiciousScore
+- deviceInfo
+- deviceFingerprint
+- installId
+- lastIP
+- lastUserAgent
+- fraudFlags
+- lastActiveAt
+- createdAt
+- updatedAt
+
+Backend should block:
+- check-in
+- spin
+- scratch
+- withdrawal
+- offerwall rewards
+
+if user is banned.
+
+Create fraudLogs collection.
+
+Fraud log fields:
+- logId
+- deviceId/userId
+- eventType: vpn_detected | proxy_detected | duplicate_device | emulator_detected | rate_limit | suspicious_pattern | banned_action_attempt
+- severity
+- scoreAdded
+- ip
+- userAgent
+- deviceFingerprint
+- metadata
+- createdAt
+
+====================================================
+11. Add Firebase security rules
+====================================================
+
+Add a firestore.rules file.
+
+Rules should ensure:
+- Users cannot directly edit coinsBalance
+- Users cannot directly edit pkrBalance
+- Users cannot update withdrawal status
+- Users cannot create fake ledger entries
+- Users cannot edit fraud logs
+- Users cannot edit app settings
+- Users can read their own safe/public user data
+- Sensitive writes must be backend-controlled only
+- Admin/backend has full access using Admin SDK
+
+Since Firebase Admin bypasses rules, mobile should avoid direct writes for sensitive collections.
+
+====================================================
+12. Improve mobile app API layer
+====================================================
+
+Create a clean API client file in mobile app, for example:
+services/api.ts
+
+It should include:
+- API_BASE_URL from env
+- initUser()
+- getUser()
+- checkIn()
+- spin()
+- scratch()
+- getWithdrawals()
+- submitWithdrawal()
+- getTransactions()
+- submitSupport()
+- getSupportTickets()
+
+Handle:
+- loading states
+- network errors
+- backend error messages
+- timeout
+- retry where safe
+
+Update UserContext to use backend API instead of direct Firestore writes.
+
+====================================================
+13. Keep Firestore client only for safe reads if needed
+====================================================
+
+If Firebase client SDK remains in mobile app, use it only for safe read-only data or remove it entirely from sensitive actions.
+
+Sensitive actions must be backend-only:
+- create user
+- update balance
+- add coins
+- deduct coins
+- withdrawal request
+- status changes
+- ledger entries
+- fraud logs
+
+====================================================
+14. Add proper transaction handling
+====================================================
+
+Use Firestore transactions or batched writes for:
+- awarding coins
+- withdrawal submission
+- withdrawal rejection refund
+- admin coin adjustment
+- duplicate transaction handling
+- offerwall reward credit
+
+This prevents balance mismatch if two requests happen at same time.
+
+====================================================
+15. Add duplicate transaction protection
+====================================================
+
+For offerwall/webhook rewards and any external reward:
+- Save external transactionId
+- Before crediting coins, check if transactionId already exists
+- If already processed, return success but do not credit again
+- Store webhook log
+- Store status: processed | duplicate | rejected | failed
+
+Do not change Monlix App ID setup right now. Just make webhook transaction handling safe.
+
+====================================================
+16. Add user-facing pages/features
+====================================================
+
+Add or improve these screens:
+
+A. How It Works screen
+Explain:
+- Earn coins through check-in, games, and offers
+- Coins convert to PKR
+- Minimum withdrawal
+- Fair play rules
+- VPN/proxy is not allowed
+- One account per device/user
+- Payout schedule
+
+B. Terms & Conditions screen
+Include:
+- No VPN
+- No proxy
+- No emulator/bot abuse
+- No fake device/account abuse
+- One account per device/user
+- Fraud can cause ban
+- Withdrawal review can take time
+- Rewards depend on valid activity
+- App can reject suspicious withdrawals
+- Fake/fraud traffic is forbidden
+
+C. Support screen
+User can submit support ticket:
+- issue type
+- message
+- deviceId automatically attached
+- createdAt
+- status: open | replied | closed
+
+D. Profile screen
+Show:
+- deviceId
+- account status
+- joined date
+- total earned coins
+- total withdrawn
+- pending withdrawals
+- account under review/banned status if applicable
+
+====================================================
+17. Add support ticket backend
+====================================================
+
+Create:
+- POST /api/users/:deviceId/support
+- GET /api/users/:deviceId/support
+- GET /api/admin/support
+- POST /api/admin/support/:ticketId/reply
+- POST /api/admin/support/:ticketId/close
+
+====================================================
+18. Improve wallet UI
+====================================================
+
+Wallet should show:
+- available balance
+- pending withdrawal amount
+- minimum withdrawal
+- conversion rate
+- withdrawal rules
+- next payout info
+- pending/approved/rejected/paid badges
+- rejection reason if rejected
+
+Withdrawal form should validate:
+- payment method
+- account number length
+- account title
+- amount
+- minimum amount
+- max available amount
+
+====================================================
+19. Fix and redesign Spin Wheel UI
+====================================================
+
+The current Spin Wheel has a poor/glitchy look.
+
+Redesign it to look polished and visually similar to the reference image I provided.
+
+Requirements:
+- Make the Spin Wheel visually attractive, clean, and production quality
+- Use a circular wheel with colorful reward segments
+- Add a polished metallic/silver outer ring
+- Add glowing light bulbs around the wheel border
+- Use a vibrant purple/pink radial background behind the wheel
+- Use a prominent center button labeled “Spin”
+- Keep the theme playful, reward-based, and premium
+- Make alignment, proportions, spacing, and colors look correct
+- Avoid broken layout, clipping, stretching, or low-quality/glitchy appearance
+- Improve animation so spinning feels smooth and premium
+- Show winning segment result clearly after spin
+- Keep the app’s dark vibrant/gold theme overall, but for Spin Wheel specifically, make it visually close to the provided reference style
+
+Important:
+Use the attached Spin Wheel image as visual reference.
+Goal is not exact copying, but a similar premium polished style.
+
+====================================================
+20. Fix and redesign Scratch Card UI
+====================================================
+
+The current Scratch Card has a poor/glitchy look.
+
+Redesign it to look polished and visually similar to the reference image I provided.
+
+Requirements:
+- Make the Scratch Card look like a premium reward ticket
+- Use a rectangular card/ticket style with rounded corners
+- Use golden/brown textured background
+- Include bold “SCRATCH and WIN!” style presentation
+- Add a circular silver scratch area with metallic look
+- Make scratch surface smooth and visually realistic
+- Improve scratch interaction so it feels satisfying and not buggy
+- Fix glitchy or broken appearance
+- Make layout balanced and visually appealing
+- Keep the card looking like a real reward promo card, not a plain box
+
+Important:
+Use the attached Scratch Card image as visual reference.
+Goal is not exact copying, but a similar premium polished style.
+
+====================================================
+21. Add loading/error/empty states
+====================================================
+
+Every screen should have:
+- loading state
+- error state
+- retry button
+- empty state
+
+Especially:
+- dashboard
+- games
+- wallet history
+- transactions
+- support tickets
+- offerwall screen
+- admin panel
+
+====================================================
+22. Add environment documentation
+====================================================
+
+Create or update .env.example files.
+
+Backend env example:
+- PORT=8080
+- FIREBASE_PROJECT_ID=
+- FIREBASE_CLIENT_EMAIL=
+- FIREBASE_PRIVATE_KEY=
+- MONLIX_API_SECRET=
+- ADMIN_PASSWORD=
+- ALLOWED_ORIGINS=
+- RATE_LIMIT_WINDOW_MS=
+- RATE_LIMIT_MAX=
+- IP_REPUTATION_API_KEY=
+- VPN_CHECK_PROVIDER=
+
+Mobile env example:
+- EXPO_PUBLIC_API_BASE_URL=
+- EXPO_PUBLIC_FIREBASE_API_KEY=
+- EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+- EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+- EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+- EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+- EXPO_PUBLIC_FIREBASE_APP_ID=
+- EXPO_PUBLIC_MONLIX_APP_ID=
+
+Do not require Monlix App ID to complete this task.
+
+====================================================
+23. Update OpenAPI spec
+====================================================
+
+Update lib/api-spec/openapi.yaml for all new or changed endpoints:
+- rewards now do not accept coinsWon
+- withdrawal fields updated
+- admin endpoints
+- support endpoints
+- transaction ledger endpoints
+- fraud log endpoints
+- VPN/duplicate device related responses
+
+Run codegen if needed.
+
+====================================================
+24. TypeScript and build
+====================================================
+
+After changes:
+- Fix all TypeScript errors
+- Run pnpm run typecheck
+- Make sure mobile app compiles
+- Make sure API server builds
+- Do not leave unused imports
+- Do not break Expo Router
+
+====================================================
+25. Keep UI style consistent
+====================================================
+
+Keep the same dark vibrant/gold theme.
+Do not redesign the entire app unnecessarily.
+Only add missing screens/components in the same style.
+
+For games:
+- Spin Wheel should look premium like the attached colorful wheel image.
+- Scratch Card should look premium like the attached scratch ticket image.
+
+====================================================
+26. Final output required
+====================================================
+
+After implementing, tell me:
+- What files changed
+- What new files were added
+- What new endpoints were added
+- What security issues were fixed
+- What anti-fraud protections were added
+- How VPN/proxy detection works
+- How one-device-one-account logic works
+- How duplicate account attempts are blocked
+- How admin login works
+- How withdrawal approval works
+- How rejected withdrawals refund coins
+- How Spin Wheel UI was improved
+- How Scratch Card UI was improved
+- How to run backend and mobile
+- What env variables I must add
+- What features are still manual, especially Easypaisa/JazzCash payout
+- Any technical limitation, especially about 100% device detection after reinstall/data clear
+
+====================================================
+Acceptance criteria
+====================================================
+
+The task is only complete if all these are true:
+
+- User cannot cheat coins from APK/client code
+- Mobile app does not directly update sensitive Firestore fields
+- Spin/scratch/check-in rewards are backend controlled
+- Spin/scratch rewards are decided by backend only
+- Daily limits are enforced server-side
+- Spin limit is 5/day
+- Scratch limit is 5/day
+- Check-in is once every 24 hours
+- VPN/proxy users are blocked from earning actions
+- Repeated VPN/proxy attempts create fraud logs
+- Repeated VPN/proxy abuse can auto-ban user
+- Same mobile cannot create multiple earning accounts as much as technically possible
+- Duplicate device/account attempts are blocked or flagged
+- Banned users cannot earn or withdraw
+- Monthly withdrawal rule is enforced
+- One pending withdrawal rule is enforced
+- Admin can approve/reject/mark paid
+- Rejected withdrawal refunds coins
+- Ledger records every coin change
+- Fraud logs record suspicious activity
+- Conversion rate is consistent: 1000 coins = PKR 20
+- App works without Monlix App ID for now
+- Spin Wheel UI is polished and visually similar to attached reference image
+- Scratch Card UI is polished and visually similar to attached reference image
+- TypeScript passes
+- Backend builds successfully
+- Mobile app runs successfully

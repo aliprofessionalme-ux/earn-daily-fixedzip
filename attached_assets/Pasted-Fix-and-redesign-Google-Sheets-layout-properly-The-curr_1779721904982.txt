@@ -1,0 +1,314 @@
+Fix and redesign Google Sheets layout properly. The current Google Sheet layout is bad, messy, unreadable, and not like a professional dashboard.
+
+Important:
+Do not change mobile app.
+Do not change Firestore reward logic.
+Do not change withdrawals logic.
+Do not change provider/webhook logic.
+Only fix Google Sheets reporting layout and sync.
+
+Use existing spreadsheet only:
+GOOGLE_SHEETS_SPREADSHEET_ID is already set.
+Do not create a new spreadsheet.
+Do not call sheets.spreadsheets.create.
+Do not call drive.files.create.
+
+CRITICAL LAYOUT REQUIREMENT:
+I want exactly 2 visible sheets/tabs only:
+
+1. User Data & Activity
+2. Tax & Finance Dashboard
+
+All other old tabs must be deleted or hidden:
+Dashboard
+Users Data
+User Balances
+Transactions
+App Data Dashboard
+Tax & Finance Dashboard old copy
+Raw Export Backup
+Provider Revenue
+Offerwall Events
+Ad Events
+Withdrawals
+Daily Summary
+Manual Notes
+
+If raw logs are needed internally, create "Raw Export Backup" but keep it hidden. Do not show it as a visible messy tab.
+
+DESIGN STYLE:
+Make the sheet look like a professional dark financial dashboard, similar to a black/gold finance report.
+
+Use these colors:
+- Page background: very dark charcoal / #0B0F14
+- Section cards: #111827 or #161B22
+- Main title text: gold/yellow #FACC15
+- Table header background: #FACC15
+- Table header text: black #000000
+- Body text: white/light gray
+- Positive/paid/confirmed status: green
+- Pending/manual review: yellow/orange
+- Rejected/failed/banned: red
+- Borders: dark gold / #A16207
+
+Do not leave plain white rows around the dashboard.
+Do not make random black blocks.
+Do not start data at row 1 without layout.
+Do not create tiny unreadable columns.
+Do not create charts unless they are clean and correctly placed.
+Focus on clean cards + tables first.
+
+SHEET 1: User Data & Activity
+
+Purpose:
+This sheet must contain all user data, balances, activity, withdrawal summary, and user status in one clean readable place.
+
+Layout:
+
+Rows 1-2:
+- Merge A1:V2
+- Big title: "EARN DAILY — USER DATA & APP ACTIVITY"
+- Dark background
+- Gold bold text
+- Font size 18 or 20
+- Center aligned
+
+Rows 4-6:
+Create summary cards with merged cells:
+A4:D6 = Total Users
+E4:H6 = Active Users
+I4:L6 = Manual Review Users
+M4:P6 = Banned Users
+Q4:T6 = Total Paid PKR
+
+Each card:
+- Dark card background
+- Gold label
+- Large white/gold value
+- Border around card
+
+Rows 8-9:
+- Merge A8:V8
+- Section title: "USER DATA & BALANCES"
+- Gold text on dark background
+
+Row 10:
+Table header row with these columns:
+Date
+Device ID
+Firebase UID
+User Name
+Email
+Phone
+Status
+Banned
+Manual Review
+Risk Score
+Energy
+Pending Coins
+Confirmed Coins
+PKR Balance
+Lifetime Pending Coins
+Lifetime Confirmed Coins
+Lifetime Paid PKR
+Tasks Completed
+Ads Watched
+Withdrawals Requested
+Last Active
+Admin Note
+
+Rows 11 onward:
+Write user data from Firestore.
+
+Formatting:
+- Header row background gold, text black, bold
+- Body rows alternating dark colors
+- Text readable, not black on black
+- Freeze rows 1 to 10
+- Add filter to table
+- Auto resize columns
+- Set key columns wider:
+  Device ID width 180
+  Firebase UID width 220
+  Email width 220
+  Admin Note width 280
+- Align money/coin columns right
+- Risk score conditional color:
+  0-30 green
+  31-70 orange
+  71+ red
+- Status color:
+  active/normal/confirmed = green
+  pending/manual_review = orange/yellow
+  banned/rejected/failed = red
+
+SHEET 2: Tax & Finance Dashboard
+
+Purpose:
+This sheet must be the tax, revenue, withdrawals, provider revenue, and profit report.
+
+Layout:
+
+Rows 1-2:
+- Merge A1:V2
+- Big title: "EARN DAILY — TAX & FINANCIAL DASHBOARD"
+- Dark background
+- Gold bold text
+- Font size 18 or 20
+- Center aligned
+
+Rows 4-6:
+Create summary cards with merged cells:
+A4:D6 = Total Revenue USD
+E4:H6 = Total Revenue PKR
+I4:L6 = User Payouts PKR
+M4:P6 = Net Profit PKR
+Q4:T6 = Taxable Income Estimate PKR
+
+Each card:
+- Dark card background
+- Gold label
+- Large value
+- Green for profit
+- Red for losses/expenses
+- Border around card
+
+Rows 8-9:
+- Merge A8:V8
+- Section title: "MONTHLY TAX SUMMARY"
+- Gold text on dark background
+
+Row 10:
+Monthly Tax Summary table headers:
+Month
+USD To PKR Rate
+Total Revenue USD
+Total Revenue PKR
+User Payouts PKR
+Provider Fees PKR
+Bank/Platform Fees PKR
+Gross Profit PKR
+Net Profit PKR
+Taxable Income Estimate PKR
+Notes
+
+Rows 11-22:
+Monthly tax rows.
+
+Rows 25-26:
+- Merge A25:V25
+- Section title: "WITHDRAWALS LEDGER"
+
+Row 27:
+Withdrawals headers:
+Date
+Withdrawal ID
+Device ID
+Firebase UID
+Amount PKR
+Coins Deducted
+Method
+Account Number
+Status
+Requested At
+Approved At
+Paid At
+Admin Note
+
+Rows 28 onward:
+Withdrawal data.
+
+After withdrawals section, create next section:
+"PROVIDER REVENUE LEDGER"
+
+Headers:
+Date
+Provider
+Revenue USD
+Revenue PKR
+Pending Coins
+Confirmed Coins
+Rejected Coins
+Reversed Coins
+Estimated User Payout PKR
+Estimated Profit PKR
+Tasks Completed
+Status
+
+After provider section, create:
+"TRANSACTION SUMMARY"
+
+Headers:
+Date
+Transaction ID
+Device ID
+Firebase UID
+Type
+Source
+Provider
+Coins
+Energy
+PKR Amount
+Status
+Note
+
+Formatting:
+- All section headings merged, dark background, gold text
+- Header rows gold background, black bold text
+- Body rows alternating dark colors
+- Money columns aligned right
+- Freeze rows 1 to 10
+- Add filters to main tables
+- Auto resize columns
+- Apply borders around sections
+- Status colors:
+  paid/confirmed/completed = green
+  pending = yellow/orange
+  rejected/failed/reversed = red
+
+VERY IMPORTANT:
+Do not make many tabs.
+Do not show old messy tabs.
+Do not leave default blank Sheet1 visible.
+Do not make the first row only headers without dashboard layout.
+Do not make columns unreadable or squeezed.
+Do not overwrite the sheet with random black rows.
+Do not use black text on dark background.
+Do not place tables at row 1.
+Do not create fake data. Use Firestore real data only. If no data exists, leave rows empty but keep the designed layout.
+
+SYNC BEHAVIOR:
+On "Redesign Sheet":
+- Clear existing messy sheet structure.
+- Delete or hide old tabs.
+- Create exactly 2 visible tabs:
+  User Data & Activity
+  Tax & Finance Dashboard
+- Apply full dashboard formatting.
+- Create headers and sections.
+- Do not write duplicate headers.
+
+On "Sync Now":
+- Read Firestore data.
+- Fill User Data & Activity from users, balances, withdrawals summary, activity.
+- Fill Tax & Finance Dashboard from withdrawals, provider revenue, offer events, ad events, transactions.
+- Update summary cards.
+- If data is missing, show 0 values, not broken layout.
+
+Admin Panel:
+Keep Google Sheets Reports card with:
+- Redesign Sheet button
+- Sync Now button
+- Open Sheet button
+- Last Sync Time
+- Last Error
+
+Acceptance criteria:
+- Only 2 visible tabs are shown.
+- The sheet looks like a professional dark/gold financial dashboard.
+- User data is readable and properly arranged.
+- Tax and finance records are readable and properly arranged.
+- Old messy raw tabs are removed or hidden.
+- Backend /api/healthz still works.
+- Admin login still works.
+- Mobile app remains unaffected.

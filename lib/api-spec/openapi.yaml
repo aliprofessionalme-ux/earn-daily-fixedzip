@@ -1,0 +1,489 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Earn Daily API - Energy, Pending Coins, Confirmed Coins, withdrawals, and provider callbacks
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: users
+    description: User management
+  - name: rewards
+    description: Reward operations
+  - name: withdrawals
+    description: Withdrawal operations
+  - name: webhooks
+    description: Webhook endpoints
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /users/init:
+    post:
+      operationId: initUser
+      tags: [users]
+      summary: Initialize or fetch a user by deviceId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitUserRequest"
+      responses:
+        "200":
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserData"
+
+  /users/{deviceId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user data by deviceId
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserData"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{deviceId}/checkin:
+    post:
+      operationId: dailyCheckIn
+      tags: [rewards]
+      summary: Perform daily check-in (+Energy only, once per 24h)
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Check-in result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardResult"
+        "400":
+          description: Already checked in today
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{deviceId}/spin:
+    post:
+      operationId: recordSpin
+      tags: [rewards]
+      summary: Record a spin and award Energy only (daily limit applies)
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Spin result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardResult"
+        "400":
+          description: Daily spin limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{deviceId}/scratch:
+    post:
+      operationId: recordScratch
+      tags: [rewards]
+      summary: Record a scratch card and award Energy only (daily limit applies)
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scratch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardResult"
+        "400":
+          description: Daily scratch limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{deviceId}/withdrawals:
+    get:
+      operationId: getWithdrawals
+      tags: [withdrawals]
+      summary: Get withdrawal history for a user
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of withdrawals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Withdrawal"
+    post:
+      operationId: submitWithdrawal
+      tags: [withdrawals]
+      summary: Submit a withdrawal request
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawalRequest"
+      responses:
+        "200":
+          description: Withdrawal submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+        "400":
+          description: Insufficient balance or below minimum
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /webhooks/monlix:
+    get:
+      operationId: monlixWebhookGet
+      tags: [webhooks]
+      summary: Monlix provider postback (GET)
+      description: Verified backend-only provider callback. Rewards go to Pending Coins first and are idempotent by provider transaction ID.
+      responses:
+        "200":
+          description: Reward processed or duplicate ignored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid signature/secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: monlixWebhookPost
+      tags: [webhooks]
+      summary: Monlix provider postback (POST)
+      description: Verified backend-only provider callback. Rewards go to Pending Coins first and are idempotent by provider transaction ID.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderWebhookPayload"
+      responses:
+        "200":
+          description: Reward processed or duplicate ignored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid signature/secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /webhooks/ayet:
+    get:
+      operationId: ayetWebhookGet
+      tags: [webhooks]
+      summary: ayeT provider postback (GET)
+      description: Supports verified callbacks when AYET_POSTBACK_SECRET is configured; otherwise stores callbacks for manual review without crediting balances.
+      responses:
+        "200":
+          description: Reward processed or duplicate ignored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "202":
+          description: Stored for manual review because postback secret is missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid signature/secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: ayetWebhookPost
+      tags: [webhooks]
+      summary: ayeT provider postback (POST)
+      description: Supports verified callbacks when AYET_POSTBACK_SECRET is configured; otherwise stores callbacks for manual review without crediting balances.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderWebhookPayload"
+      responses:
+        "200":
+          description: Reward processed or duplicate ignored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "202":
+          description: Stored for manual review because postback secret is missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid signature/secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    InitUserRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+      required: [deviceId]
+
+    UserData:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        coinsBalance:
+          type: number
+          description: Legacy alias kept in sync with confirmedCoinsBalance.
+        pkrBalance:
+          type: number
+        energyBalance:
+          type: number
+        pendingCoinsBalance:
+          type: number
+        confirmedCoinsBalance:
+          type: number
+        totalEarnedCoins:
+          type: number
+        lastCheckInTimestamp:
+          type: string
+          nullable: true
+        dailySpinsUsed:
+          type: number
+        dailyScratchUsed:
+          type: number
+        lastSpinResetDate:
+          type: string
+          nullable: true
+        lastScratchResetDate:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - deviceId
+        - coinsBalance
+        - pkrBalance
+        - energyBalance
+        - pendingCoinsBalance
+        - confirmedCoinsBalance
+        - dailySpinsUsed
+        - dailyScratchUsed
+
+    RewardResult:
+      type: object
+      description: Check-in, Spin, and Scratch return Energy rewards only. Provider Coins are credited only from verified backend callbacks.
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        energyAwarded:
+          type: number
+          description: Energy credited for check-in, spin, or scratch.
+        balanceAfterEnergy:
+          type: number
+          description: User Energy balance after the reward.
+        spinsLeft:
+          type: number
+          nullable: true
+        scratchLeft:
+          type: number
+          nullable: true
+      required: [success, message, energyAwarded, balanceAfterEnergy]
+
+
+    Withdrawal:
+      type: object
+      properties:
+        withdrawalId:
+          type: string
+        deviceId:
+          type: string
+        paymentMethod:
+          type: string
+        accountNumber:
+          type: string
+        accountTitle:
+          type: string
+        amountPKR:
+          type: number
+        status:
+          type: string
+        timestamp:
+          type: string
+      required:
+        - withdrawalId
+        - deviceId
+        - paymentMethod
+        - accountNumber
+        - accountTitle
+        - amountPKR
+        - status
+        - timestamp
+
+    WithdrawalRequest:
+      type: object
+      properties:
+        paymentMethod:
+          type: string
+          enum: [Easypaisa, JazzCash]
+        accountNumber:
+          type: string
+        accountTitle:
+          type: string
+        amountPKR:
+          type: number
+      required: [paymentMethod, accountNumber, accountTitle, amountPKR]
+
+    ProviderWebhookPayload:
+      type: object
+      additionalProperties: true
+      description: Provider-specific callback payload. Must include a user/device identifier, a provider transaction/conversion ID, payout USD or already-converted virtual currency, and a verifiable secret/signature. Missing transaction IDs are rejected.
+      properties:
+        userId:
+          type: string
+        deviceId:
+          type: string
+        transactionId:
+          type: string
+        payoutUSD:
+          type: number
+        coins:
+          type: number
+        status:
+          type: string
+        signature:
+          type: string
+        secret:
+          type: string

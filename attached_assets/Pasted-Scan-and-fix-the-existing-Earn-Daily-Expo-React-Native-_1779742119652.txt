@@ -1,0 +1,137 @@
+Scan and fix the existing Earn Daily Expo React Native + Express + Firebase Firestore project without breaking the current Energy, Pending Coins, Confirmed Coins, withdrawal, admin, support ticket, transaction history, and provider postback flows.
+
+First run dependency install/build/typecheck commands that are appropriate for this pnpm monorepo. If pnpm is missing, install/use corepack. Then fix all build/type errors before changing business logic.
+
+Critical fixes required:
+
+1. Fix mobile API base URL
+- Remove or stop relying on the hardcoded stale EXPO_PUBLIC_API_BASE_URL from .replit.
+- In artifacts/mobile/services/api.ts, derive the API URL safely from the current Replit domain when EXPO_PUBLIC_API_BASE_URL is empty.
+- Do not force a stale :8080 pike.replit.dev URL.
+- Add clear runtime error/logging if no valid API base URL is available.
+
+2. Add real API authentication
+- Mobile already initializes Firebase anonymous auth. Update API calls to send Authorization: Bearer <Firebase ID token>.
+- Backend must verify Firebase ID tokens on all sensitive user routes except initial /users/init.
+- Match the authenticated firebaseUid to the stored user record for the requested deviceId.
+- In production, do not allow public deviceId-only access.
+- Keep a dev-only fallback behind an explicit env flag if necessary.
+- Protect these routes: checkin, spin, scratch, withdrawals, support, ad rewards, task slot unlock, transactions, offer events, and user profile reads.
+
+3. Fix ad reward flow
+- Do not let /users/:deviceId/ads/unity/rewarded-complete directly credit energy without verification.
+- Add rate limit, idempotency, cooldown, and server-side session token if keeping this endpoint.
+- If real Unity rewarded SDK verification is not implemented in Expo mobile, make the Watch Ads category show Coming Soon / unavailable instead of “available”.
+- Do not show UI actions that credit rewards without a real verified ad completion.
+
+4. Fix offerwall provider mismatch
+- Keep user-facing provider names generic: Game Tasks, Earning Tasks, Survey Rewards, App Install Tasks, High Reward Offers, Watch Ads.
+- Internally keep provider names for tracking.
+- Mobile currently only opens Monlix. Add safe provider URL generation/config support for Tapjoy, ayeT, and PubScale only if required env values exist.
+- If a provider is not configured, show “Coming Soon” or disabled state, not available.
+- Do not expose raw provider names in user-facing UI.
+
+5. Fix manual review and pending reward confirmation
+- runConfirmPendingRewardsJob must only auto-confirm events with status pending_verification.
+- Never auto-confirm status manual_review_required.
+- Also skip any event where manualReviewRequired === true.
+- Keep large rewards, suspicious users, duplicate-risk events, invalid payout events, and manual-review events for admin approval.
+- Add tests or a clear manual verification path for pending_verification vs manual_review_required.
+
+6. Fix reversal idempotency
+- Provider reversal webhook must be idempotent.
+- If an offer event is already reversed or rejected, return no-op and do not deduct coins again.
+- Only allow reversal deduction for confirmed or pending/manual events according to correct status.
+- Add a reversal dedupe record keyed by provider + externalTransactionId + reversalId if available.
+- Ensure duplicate reversal postbacks cannot double-deduct confirmedCoinsBalance or pkrBalance.
+
+7. Fix first withdrawal completion logic
+- When a withdrawal is marked paid, set user.firstWithdrawalCompleted = true if not already true.
+- Make sure this affects future offer hold periods.
+- Keep paid withdrawals non-refundable/non-reversible through the normal reject path.
+
+8. Use app settings for conversion rates
+- Replace hardcoded 1000 coins = PKR 20 conversion functions with values from settings.app:
+  coinRateCoins and coinRatePKR.
+- Add a safe settings cache/helper if needed.
+- Update all coin-to-PKR and PKR-to-coin calculations consistently:
+  user balances,
+  withdrawals,
+  reversals,
+  admin adjustments,
+  Google Sheets reporting,
+  dashboard stats,
+  mobile wallet display.
+- Add /api/settings or a user-safe endpoint so mobile can fetch minimumWithdrawalPKR and coin conversion rate.
+- Remove mobile hardcoded PKR 500 minimum withdrawal and hardcoded conversion assumptions.
+
+9. Fix daily reset timezone consistency
+- Current daily date logic uses UTC. Make reset date timezone configurable, default Asia/Karachi.
+- Apply it consistently to check-in/spin/scratch/task-slot counters.
+- Decide whether check-in is true calendar daily or 24-hour cooldown. Make UI copy match backend behavior.
+
+10. Fix task slot logic
+- Currently unlockExtraTaskSlot deducts energy but task slot enforcement is not actually applied.
+- Either implement real task slot usage/enforcement when users open/start earning tasks, or remove/disable extra slot UI and related misleading copy.
+- Do not charge energy for a feature that does not actually unlock usable earning capacity.
+
+11. Fix Google Sheets layout breaking
+- In services/googleSheets.ts, clear data by clearing cell values/ranges, not by deleting rows.
+- Do not use deleteDimension for report data refresh because it shifts layout and breaks professional formatting.
+- Preserve section spacing, summary blocks, headers, formulas, and styling.
+- If old rows need to be reset, blank only the content ranges.
+- Ensure sync writes data to the intended fixed rows and does not push summary sections down.
+- Use configurable USD to PKR rate if needed.
+- Count provider revenue based on correct confirmed/paid logic, not rejected/reversed/pending events.
+- Return visible errors if any tab sync fails instead of reporting full success silently.
+
+12. Fix Firestore rules and server-created docs
+- Update firestore.rules so client cannot modify sensitive fields:
+  coinsBalance, pendingCoinsBalance, confirmedCoinsBalance, pkrBalance, energyBalance,
+  totalEarnedCoins, taskSlotsUsedToday, extraSlotsUnlocked,
+  risk fields, withdrawal counters, admin flags, timestamps, and provider fields.
+- If withdrawals/supportTickets are meant to be read directly by client, include firebaseUid on those docs and rules.
+- If mobile only uses API, lock direct client reads/writes down and document that API is the source of truth.
+
+13. Sync API spec/generated clients
+- Update lib/api-spec/openapi.yaml to match real API behavior.
+- Check-in/spin/scratch should return energyAwarded/balanceAfterEnergy if that is the intended model.
+- Document support tickets, transactions, withdrawals, offer events, task-slot unlock, ad endpoints, provider webhooks, and settings endpoint.
+- Regenerate api-zod/api-client packages if generation is part of the project.
+- Remove outdated references saying spin/scratch/check-in directly award coins.
+
+14. Update docs and user-facing copy
+- Update replit.md, how-it-works screen, and any terms/help copy.
+- Make it clear:
+  check-in/spin/scratch earn Energy,
+  Energy is used to unlock/boost earning tasks if implemented,
+  provider tasks generate Pending Coins first,
+  Pending Coins become Confirmed Coins after verification/hold,
+  withdrawals use Confirmed Coins only.
+- Rename admin title from “Engage-to-Earn Admin” to “Earn Daily Admin” everywhere if still present.
+- Keep provider brand names hidden from normal user UI.
+
+15. Harden admin
+- Require SESSION_SECRET in production; do not fallback to dev-session-secret in production.
+- Set admin cookies with Secure when HTTPS/production, HttpOnly, SameSite, and Max-Age.
+- Add CSRF protection for admin POST forms.
+- Limit dashboard full collection scans or use aggregate/cached stats where possible.
+- Keep admin actions functional: approve/reject rewards, withdrawal status update, support replies, Google Sheets sync.
+
+16. Testing checklist before finishing
+- Run typecheck/build for API and mobile.
+- Test init user, refresh user, check-in, spin, scratch.
+- Test offer reward pending -> confirm.
+- Test manual_review_required does not auto-confirm.
+- Test duplicate provider reward does not double-credit.
+- Test duplicate reversal does not double-deduct.
+- Test paid withdrawal sets firstWithdrawalCompleted.
+- Test wallet uses backend minimum withdrawal and conversion settings.
+- Test Google Sheets sync keeps layout fixed and does not push sections down.
+- Test UI does not show available buttons for unimplemented providers/ad SDKs.
+
+Important:
+- Preserve the existing app design and current working flows as much as possible.
+- Do not remove Energy, Pending Coins, Confirmed Coins, withdrawals, admin dashboard, support tickets, transaction history, or provider tracking.
+- Fix logic and security first, then polish UI copy.
+- Avoid showing provider names in the mobile app UI; use generic earning task category names.

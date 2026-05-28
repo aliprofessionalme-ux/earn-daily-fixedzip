@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownDoc() {
+      return signedIn() && resource.data.firebaseUid == request.auth.uid;
+    }
+
+    // Mobile uses the Express API for all balance/reward/withdrawal writes.
+    // These sensitive fields must never be changed directly by the client:
+    // coinsBalance, pkrBalance, energyBalance, pendingCoinsBalance,
+    // confirmedCoinsBalance, totalEarnedCoins, daily counters,
+    // taskSlotsUsedToday, extraSlotsUnlocked, fraud/risk fields,
+    // manual-review fields, firstWithdrawalCompleted, withdrawal admin/status
+    // fields, and provider webhook fields.
+    match /users/{deviceId} {
+      allow read: if ownDoc();
+      allow create, update, delete: if false;
+    }
+
+    match /withdrawals/{withdrawalId} {
+      allow read: if ownDoc();
+      allow create, update, delete: if false;
+    }
+
+    match /coinTransactions/{transactionId} {
+      allow read, write: if false;
+    }
+
+    match /supportTickets/{ticketId} {
+      allow read: if ownDoc();
+      allow create, update, delete: if false;
+    }
+
+    match /offerEvents/{eventId} {
+      allow read: if ownDoc();
+      allow create, update, delete: if false;
+    }
+
+    match /adEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /webhookLogs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /webhookDedupe/{docId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

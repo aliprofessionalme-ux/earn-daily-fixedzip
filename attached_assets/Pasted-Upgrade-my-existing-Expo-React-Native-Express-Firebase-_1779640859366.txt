@@ -1,0 +1,640 @@
+Upgrade my existing Expo React Native + Express + Firebase Firestore app called Earn Daily with a complete multi-provider monetization system.
+
+IMPORTANT:
+Do not rebuild the app from scratch.
+Do not remove Expo.
+Do not remove Express backend.
+Do not remove Firebase Admin SDK.
+Do not remove existing screens, backend routes, admin panel, wallet, withdrawal, support, transactions, spin, scratch, check-in, profile, dashboard, or existing reward logic.
+Only upgrade the current system safely.
+
+Main goal:
+Add a safe multi-provider earning system with:
+1. Monlix offerwall/tasks
+2. Tapjoy offerwall/tasks
+3. ayeT-Studios offerwall/tasks
+4. PubScale offerwall/tasks
+5. Unity Ads rewarded/interstitial ads
+
+Provider rule:
+- Monlix, Tapjoy, ayeT-Studios, and PubScale rewards must go to pendingCoinsBalance first.
+- These rewards must never go directly to confirmedCoinsBalance.
+- Pending coins are not withdrawable.
+- Admin or auto-confirm job can later move pending coins to confirmed coins.
+- Unity Ads must give Energy only, not withdrawable coins.
+- Spin, scratch, and check-in must give Energy only.
+
+User-facing UI rule:
+Do not show provider brand names in the mobile app UI.
+Do not show names like Monlix, Tapjoy, ayeT, PubScale to normal users unless required by provider SDK/terms.
+Use generic task/category names in the mobile app:
+- Play Games & Earn
+- Complete Game Missions
+- Survey Rewards
+- App Install Tasks
+- High Reward Offers
+- Partner Tasks
+- Watch Ads & Earn Energy
+- Pending Verification
+
+Internal/admin rule:
+Keep real provider names internally for tracking:
+provider = monlix | tapjoy | ayet | pubscale | unity
+
+Admin panel may show provider names because admin needs revenue, fraud, and postback tracking.
+
+====================================================
+1. Balance system
+====================================================
+
+The app must use these balances:
+
+energyBalance:
+- Non-withdrawable.
+- Earned from check-in, spin, scratch, Unity rewarded ads.
+- Used for app benefits like unlocking extra task slots.
+- Must never convert to PKR.
+- Must never be withdrawable.
+
+pendingCoinsBalance:
+- Earned from offerwall/task providers only:
+  monlix, tapjoy, ayet, pubscale.
+- Not withdrawable.
+- Status shown as Pending Verification.
+- Can later become confirmed, rejected, or reversed.
+
+confirmedCoinsBalance:
+- Withdrawable.
+- Converts to PKR using:
+  1000 confirmed coins = PKR 20
+- Withdrawals must only use confirmedCoinsBalance.
+
+pkrBalance:
+- Calculated from confirmedCoinsBalance only.
+
+Do not allow mobile app to directly update sensitive balances.
+All reward and withdrawal balance changes must happen on backend using Firestore transactions.
+
+====================================================
+2. Multi-provider offerwall model
+====================================================
+
+Add or update Firestore collection:
+
+offerEvents
+
+Fields:
+- eventId
+- provider: monlix | tapjoy | ayet | pubscale
+- externalTransactionId
+- deviceId
+- firebaseUid optional
+- offerName
+- offerCategory: game | survey | app_install | high_reward | partner_task | unknown
+- payoutUSD
+- coinsCalculated
+- status: pending_verification | confirmed | rejected | reversed
+- rawPayload
+- verificationHoldUntil
+- createdAt
+- updatedAt
+- confirmedAt
+- rejectedAt
+- reversedAt
+- rejectionReason
+- reversalReason
+
+All provider rewards must follow this flow:
+
+Provider postback received
+↓
+Validate provider payload/signature if secret exists
+↓
+Check duplicate externalTransactionId + provider
+↓
+Create offerEvents record
+↓
+Credit pendingCoinsBalance only
+↓
+Create ledger/transaction entry
+↓
+Show user Pending Verification
+↓
+After hold period or admin approval
+↓
+Move from pendingCoinsBalance to confirmedCoinsBalance
+↓
+Only confirmedCoinsBalance can be withdrawn
+
+====================================================
+3. Backend webhook endpoints
+====================================================
+
+Add provider webhook endpoints:
+
+POST /api/webhooks/monlix
+POST /api/webhooks/tapjoy
+POST /api/webhooks/ayet
+POST /api/webhooks/pubscale
+
+Each webhook must:
+- Accept provider postback/callback.
+- Read deviceId/userId/subId.
+- Read external transaction ID.
+- Read payoutUSD or provider reward amount.
+- Read offer name if available.
+- Read offer category if available.
+- Read status if available.
+- Store raw payload.
+- Verify secret/signature if configured.
+- Prevent duplicate credits.
+- Return success on duplicate callbacks without crediting again.
+- Credit pendingCoinsBalance only for valid new rewards.
+- Create transaction/ledger entry:
+  type: offerwall_pending
+  provider
+  status: pending_verification
+  externalTransactionId
+  payoutUSD
+  coinsCalculated
+  verificationHoldUntil
+- Handle rejected/invalid/chargeback/reversal callbacks if provider sends them.
+
+Provider-specific coin rates from env:
+MONLIX_COINS_PER_USD=10000
+TAPJOY_COINS_PER_USD=10000
+AYET_COINS_PER_USD=10000
+PUBSCALE_COINS_PER_USD=10000
+
+If payoutUSD is missing:
+- Do not guess a big reward.
+- Store event for manual review.
+- Mark status pending_verification or manual_review_required.
+- Do not credit huge coins blindly.
+
+====================================================
+4. Reversal and chargeback handling
+====================================================
+
+If provider sends rejected/chargeback/reversal:
+
+If reward is still pending:
+- Deduct coinsCalculated from pendingCoinsBalance.
+- Mark offerEvent status rejected or reversed.
+- Mark transaction rejected/reversed.
+- Save reason.
+- Add fraud/risk note.
+
+If reward was already confirmed:
+- Deduct from confirmedCoinsBalance if possible.
+- Update pkrBalance.
+- Mark offerEvent status reversed.
+- Mark transaction reversed.
+- Increase suspiciousScore.
+- Set manualReviewRequired true if needed.
+
+Do not allow negative balances unless explicitly handled safely.
+Use Firestore transactions.
+
+====================================================
+5. Pending reward auto-confirm system
+====================================================
+
+Add protected admin job endpoint:
+
+POST /api/admin/jobs/confirm-pending-rewards
+
+This endpoint should:
+- Find offerEvents with status pending_verification.
+- Check verificationHoldUntil <= now.
+- Skip banned users.
+- Skip manualReviewRequired users.
+- Skip suspicious users.
+- Skip large rewards above threshold.
+- Confirm clean rewards.
+
+Hold period:
+- Normal user: 7 days
+- New user / first withdrawal user: 14 days
+- Suspicious user: manual review only
+
+Env:
+LARGE_REWARD_MANUAL_REVIEW_USD=5
+
+Confirm flow:
+- Deduct coinsCalculated from pendingCoinsBalance.
+- Add coinsCalculated to confirmedCoinsBalance.
+- Update pkrBalance.
+- Mark offerEvent confirmed.
+- Mark transaction confirmed.
+- Save confirmedAt.
+- Add ledger entry type: offerwall_confirmed.
+
+Manual endpoints:
+POST /api/admin/offer-events/:eventId/confirm
+POST /api/admin/offer-events/:eventId/reject
+POST /api/admin/offer-events/:eventId/reverse
+
+Admin confirm/reject/reverse must use Firestore transactions.
+
+====================================================
+6. Unity Ads system
+====================================================
+
+Unity Ads are not offerwall coins.
+Unity Ads must give Energy only.
+
+Add/update Firestore collection:
+
+adEvents
+
+Fields:
+- eventId
+- provider: unity
+- deviceId
+- adType: rewarded | interstitial
+- placementId
+- status: completed | shown | failed | skipped
+- energyGiven
+- estimatedRevenueUSD optional
+- metadata
+- createdAt
+
+Backend endpoints:
+
+POST /api/users/:deviceId/ads/unity/rewarded-complete
+
+Rules:
+- Verify user exists.
+- Block banned users.
+- Credit +1 Energy only.
+- Do not credit pendingCoinsBalance.
+- Do not credit confirmedCoinsBalance.
+- Do not credit pkrBalance.
+- Create adEvents record.
+- Create ledger entry type: unity_reward_energy.
+- Use Firestore transaction.
+
+POST /api/users/:deviceId/ads/unity/interstitial-shown
+
+Rules:
+- Record interstitial ad view.
+- Do not give coins.
+- Do not give Energy unless configured later.
+- Create adEvents record.
+
+Mobile:
+- Add placeholder methods:
+  recordUnityRewardedComplete()
+  recordUnityInterstitialShown()
+- Do not crash if Unity SDK is not yet installed.
+- Add comments/placeholders for future native SDK/EAS build integration.
+
+Important:
+If Unity Ads native SDK requires custom development build or APK/EAS build, add safe placeholders and keep Expo Go testing working.
+
+====================================================
+7. Mobile Offerwall UI
+====================================================
+
+Upgrade mobile Offerwall/Earning screen.
+
+Do not show provider names to users.
+Show generic cards:
+
+1. Play Games & Earn
+- Internal provider can be monlix/tapjoy/pubscale/ayet.
+- Subtitle:
+  Complete game missions and earn pending rewards after verification.
+
+2. Complete Game Missions
+- For game level/playtime offers.
+- Subtitle:
+  Finish required missions to receive pending rewards.
+
+3. Survey Rewards
+- For survey offers.
+- Subtitle:
+  Complete available surveys and earn after advertiser approval.
+
+4. App Install Tasks
+- For install/signup/trial offers.
+- Subtitle:
+  Try partner apps and complete required actions.
+
+5. High Reward Offers
+- For high payout offers.
+- Subtitle:
+  Complete premium tasks for larger pending rewards.
+
+6. Watch Ads & Earn Energy
+- For Unity rewarded ads.
+- Subtitle:
+  Watch rewarded ads to earn Energy for app benefits.
+
+Each card should show:
+- Generic title
+- Generic icon
+- Reward type:
+  Pending Coins or Energy
+- Status:
+  Available | Pending Setup | Coming Soon
+- Open button
+
+If provider config missing:
+- Show Coming Soon / Not Configured
+- Do not crash.
+
+Offerwall opening:
+- Use WebView/open browser if provider gives web offerwall URL.
+- Use native SDK placeholder if provider requires SDK.
+- Keep Expo Go working.
+- Add clear TODO comments for EAS/APK native SDK integration.
+
+====================================================
+8. User transaction display
+====================================================
+
+Transactions screen should not show raw provider names to users.
+
+User-friendly transaction source names:
+- Game Mission Reward
+- Survey Reward
+- App Task Reward
+- High Reward Task
+- Partner Task Reward
+- Watch Ad Energy
+- Pending Verification
+- Confirmed Reward
+- Rejected Reward
+- Reversed Reward
+
+Internally keep provider field.
+
+Transactions should clearly show:
+- Pending Verification
+- Confirmed
+- Rejected
+- Reversed
+- Energy earned
+- Withdrawal hold
+- Withdrawal refund
+
+Pending rewards must show:
+“Pending rewards are under advertiser verification and are not withdrawable yet.”
+
+====================================================
+9. Admin provider tracking
+====================================================
+
+Upgrade admin panel.
+
+Admin dashboard should show:
+- Total revenue by provider:
+  Monlix
+  Tapjoy
+  ayeT-Studios
+  PubScale
+  Unity estimated ads revenue
+- Pending rewards by provider
+- Confirmed rewards by provider
+- Rejected/reversed rewards by provider
+- Total Energy given from Unity ads
+- Total ads watched
+- Total offer tasks completed
+- User payout liability
+- Net profit/loss
+
+User detail page should show tabs:
+1. Overview
+2. Ads
+3. Offerwall Tasks
+4. Transactions
+5. Withdrawals
+6. Support
+7. Risk
+
+Offerwall Tasks tab:
+- provider
+- externalTransactionId
+- offerName
+- offerCategory
+- payoutUSD
+- coinsCalculated
+- status
+- createdAt
+- verificationHoldUntil
+- confirmedAt
+- rejectedAt
+- reversedAt
+- raw payload summary
+
+Ads tab:
+- provider: unity
+- adType
+- placementId
+- status
+- energyGiven
+- createdAt
+
+Risk tab:
+- duplicate transactions
+- chargebacks
+- rejected rewards
+- suspiciousScore
+- manualReviewRequired
+- ban/unban controls
+
+====================================================
+10. Withdrawal protection
+====================================================
+
+Withdrawal must use confirmedCoinsBalance only.
+
+Rules:
+- Energy cannot be withdrawn.
+- Pending coins cannot be withdrawn.
+- Only confirmed coins are withdrawable.
+- Minimum withdrawal PKR 500.
+- 1000 confirmed coins = PKR 20.
+- Banned users cannot withdraw.
+- ManualReviewRequired users cannot withdraw.
+- One pending withdrawal at a time.
+- One withdrawal per calendar month.
+- 7-day streak required if existing logic already supports it.
+
+Mobile withdrawal screen:
+- Show Confirmed Balance
+- Show Pending Rewards separately
+- Show Energy separately
+- Explain:
+  Only confirmed rewards are withdrawable. Pending rewards are under advertiser verification.
+
+Admin withdrawal:
+- Show pending/confirmed/energy balances.
+- Approve/reject/mark paid.
+- Rejected withdrawals refund confirmed coins.
+
+====================================================
+11. Extra task slot system
+====================================================
+
+Keep or add Energy-based task slot system.
+
+Rules:
+- 3 free task slots per day.
+- 5 Energy = unlock 1 extra task slot.
+- Max 3 extra task slots per day.
+- Energy spent is non-refundable.
+- Use Firestore transaction.
+
+Important:
+Do not unfairly reject valid provider postbacks just because postbacks arrive late.
+If slot limits are enforced:
+- Reserve slot when user opens/starts task if possible.
+- Or use slots as UI guidance only.
+- Do not reject legitimate provider rewards without clear reason.
+- Admin should be able to see slot usage and reward source.
+
+====================================================
+12. Env variables
+====================================================
+
+Update api-server .env.example:
+
+PORT=8080
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+ADMIN_PASSWORD=
+SESSION_SECRET=
+
+MONLIX_APP_ID=
+MONLIX_API_SECRET=
+MONLIX_COINS_PER_USD=10000
+
+TAPJOY_APP_ID=
+TAPJOY_SECRET_KEY=
+TAPJOY_COINS_PER_USD=10000
+
+AYET_APP_ID=
+AYET_API_KEY=
+AYET_COINS_PER_USD=10000
+
+PUBSCALE_APP_ID=
+PUBSCALE_API_KEY=
+PUBSCALE_COINS_PER_USD=10000
+
+UNITY_GAME_ID=
+UNITY_REWARDED_PLACEMENT_ID=
+UNITY_INTERSTITIAL_PLACEMENT_ID=
+
+USD_TO_PKR_RATE=280
+LARGE_REWARD_MANUAL_REVIEW_USD=5
+ALLOWED_ORIGINS=
+
+Update mobile .env.example:
+
+EXPO_PUBLIC_API_BASE_URL=
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+EXPO_PUBLIC_FIREBASE_APP_ID=
+
+EXPO_PUBLIC_MONLIX_APP_ID=
+EXPO_PUBLIC_TAPJOY_APP_ID=
+EXPO_PUBLIC_AYET_APP_ID=
+EXPO_PUBLIC_PUBSCALE_APP_ID=
+EXPO_PUBLIC_UNITY_GAME_ID=
+EXPO_PUBLIC_UNITY_REWARDED_PLACEMENT_ID=
+EXPO_PUBLIC_UNITY_INTERSTITIAL_PLACEMENT_ID=
+
+====================================================
+13. Security rules
+====================================================
+
+Do not expose private keys in mobile.
+Private keys must be backend-only:
+- FIREBASE_PRIVATE_KEY
+- MONLIX_API_SECRET
+- TAPJOY_SECRET_KEY
+- AYET_API_KEY
+- PUBSCALE_API_KEY
+- ADMIN_PASSWORD
+- SESSION_SECRET
+
+Mobile can only have public IDs:
+- EXPO_PUBLIC_* values
+
+Firestore rules should prevent client from directly editing:
+- energyBalance
+- pendingCoinsBalance
+- confirmedCoinsBalance
+- pkrBalance
+- offerEvents
+- adEvents
+- withdrawal status
+- admin settings
+- fraud fields
+
+Sensitive writes must happen through Express backend with Firebase Admin SDK.
+
+====================================================
+14. Expo Go / APK / EAS handling
+====================================================
+
+Keep app testable in Expo Go.
+
+If Tapjoy, Unity Ads, PubScale, or ayeT require native SDKs:
+- Add placeholder wrappers.
+- Do not break Expo Go.
+- Use WebView/open browser flow when web offerwall URLs are available.
+- Add comments explaining that native SDKs require EAS development build or APK build.
+- Do not install native SDK in a way that breaks Expo Go unless explicitly configured with EAS/custom dev build.
+
+Final app will later be built as APK/AAB using EAS.
+
+====================================================
+15. UI quality requirements
+====================================================
+
+Keep mobile UI professional.
+Do not create oversized cards.
+Do not break alignment.
+Do not use provider brand names in user-facing mobile UI.
+Use dark/gold/vibrant reward app theme.
+Use clear loading states.
+Use clear error states.
+Use retry buttons.
+Use safe area.
+Use responsive layout.
+Keep dashboard, wallet, profile, transactions, support, and offerwall screens clean.
+
+Admin panel can show provider names.
+Mobile app should use generic category names.
+
+====================================================
+16. Acceptance criteria
+====================================================
+
+Task is complete only if:
+
+- Backend runs on PORT=8080.
+- Mobile runs on PORT=8082.
+- /api/healthz returns {"status":"ok"}.
+- Admin opens at /admin/login.
+- Dashboard shows Energy, Pending Rewards, Confirmed Balance.
+- Offerwall screen shows generic categories, not provider brand names.
+- Monlix/Tapjoy/ayeT/PubScale rewards go to pendingCoinsBalance only.
+- Unity rewarded ads give Energy only.
+- Pending coins cannot be withdrawn.
+- Confirmed coins can be withdrawn.
+- Admin can confirm/reject/reverse pending rewards.
+- Admin can see provider-wise revenue and rewards.
+- Duplicate postbacks do not double-credit users.
+- Chargeback/reversal handling exists.
+- Mobile app does not crash if a provider is not configured.
+- Expo Go still works for UI/backend testing.
+- Native SDK placeholders are documented for future APK/EAS build.

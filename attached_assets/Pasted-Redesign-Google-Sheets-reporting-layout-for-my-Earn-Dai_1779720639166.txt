@@ -1,0 +1,351 @@
+Redesign Google Sheets reporting layout for my Earn Daily app.
+
+Current issue:
+Google Sheets reporting is working, but the sheet layout is messy.
+It created too many raw tabs and columns.
+I want a professional, clean, dashboard-style Google Sheet like a financial dashboard.
+
+Reference style:
+- Dark theme
+- Black / charcoal background
+- Gold/yellow headings and highlights
+- White readable text
+- Green/yellow/red status badges
+- Clean bordered sections
+- Summary cards at top
+- Charts/graphs for financial overview
+- Tables should be readable, aligned, and not messy
+
+Important:
+Do not replace Firestore.
+Firestore remains the main database.
+Google Sheets is only for admin reports, tax records, finance tracking, user records, withdrawals, transactions, and provider revenue.
+Do not expose Google credentials to mobile.
+Do not change reward, withdrawal, pending/confirmed coins, Energy, provider, admin, support, or transaction logic.
+Only redesign Google Sheets layout and sync behavior.
+
+Use existing spreadsheet only:
+- Use GOOGLE_SHEETS_SPREADSHEET_ID
+- Do not create a new spreadsheet
+- Do not call sheets.spreadsheets.create
+- Do not call drive.files.create
+- Use the existing spreadsheet and redesign it
+
+Main requirement:
+I want only clean organized tabs, not many ugly tabs.
+
+Create these main tabs:
+
+1. App Data Dashboard
+2. Tax & Finance Dashboard
+3. Raw Export Backup
+
+If old messy tabs exist, either:
+- delete them safely, or
+- hide them, or
+- merge their data into the 3 clean tabs
+
+Do not leave the sheet messy with 10+ visible confusing tabs.
+
+TAB 1: App Data Dashboard
+
+Purpose:
+This tab is for users, balances, tasks, withdrawals, ads, and app activity.
+
+Layout:
+Use a professional dark dashboard style.
+
+Top section:
+Merged title row:
+"EARN DAILY - USER DATA & APP ACTIVITY DASHBOARD"
+
+Under title, add KPI cards:
+- Total Users
+- Active Users
+- Pending Coins
+- Confirmed Coins
+- Total Energy
+- Pending Withdrawals
+- Paid Withdrawals PKR
+- Manual Review Users
+
+Use dark background, gold labels, white values.
+
+Main table section:
+Heading:
+"USER DATA & ACTIVITY LOG"
+
+Columns:
+Date
+Device ID
+Firebase UID
+User Name
+Email
+Phone
+Energy Balance
+Pending Coins
+Confirmed Coins
+PKR Balance
+Tasks Completed
+Ads Watched
+Withdrawals Requested
+Withdrawals Paid PKR
+Risk Score
+Status
+Admin Note
+
+Status colors:
+Active = green
+Pending = yellow
+Manual Review = orange
+Banned = red
+
+Second section:
+Heading:
+"WITHDRAWAL RECORDS"
+
+Columns:
+Date
+Withdrawal ID
+Device ID
+Amount PKR
+Coins Deducted
+Method
+Account Number
+Status
+Requested At
+Approved At
+Paid At
+Admin Note
+
+Status badge colors:
+Requested/Pending = yellow
+Approved = blue
+Paid = green
+Rejected = red
+
+Third section:
+Heading:
+"TASKS / OFFERWALL / ADS ACTIVITY"
+
+Columns:
+Created At
+Type
+Provider
+Device ID
+Offer / Ad Name
+Category
+Payout USD
+Coins
+Energy Given
+Status
+Verification Hold Until
+Reason
+
+Provider names can appear in Google Sheets/admin reports.
+Provider names must still stay hidden in normal mobile user UI.
+
+TAB 2: Tax & Finance Dashboard
+
+Purpose:
+This tab is for accounting, tax, provider revenue, user payouts, net profit.
+
+Layout:
+Professional dashboard style like financial dashboard reference image.
+
+Top merged title:
+"EARN DAILY - FINANCIAL & TAX REPORTING DASHBOARD"
+
+KPI cards:
+- Total Revenue USD
+- Total Revenue PKR
+- Total User Payouts PKR
+- Net Profit PKR
+- Pending Liability PKR
+- Confirmed Liability PKR
+- Platform Fees PKR
+- Taxable Income Estimate PKR
+
+Use dark cards with gold border.
+Positive values green.
+Negative/loss values red.
+Main value large and bold.
+
+Section 1:
+"MONTHLY FINANCIAL SUMMARY"
+
+Columns:
+Month
+Revenue USD
+USD To PKR Rate
+Revenue PKR
+Pending Coins Added
+Confirmed Coins Added
+User Payouts PKR
+Provider Fees PKR
+Platform / Bank Fees PKR
+Gross Profit PKR
+Net Profit PKR
+Taxable Income Estimate PKR
+Notes
+
+Section 2:
+"PROVIDER REVENUE BREAKDOWN"
+
+Columns:
+Date
+Provider
+Revenue USD
+Revenue PKR
+Pending Coins
+Confirmed Coins
+Rejected Coins
+Reversed Coins
+Estimated User Payout PKR
+Estimated Profit PKR
+Tasks Completed
+Status
+
+Section 3:
+"MONTHLY PROFIT COMPARISON"
+
+Create chart from monthly net profit data.
+Use gold/yellow bars.
+Dark chart background if possible.
+Months on x-axis.
+PKR profit on y-axis.
+
+Section 4:
+"REVENUE VS PAYOUTS"
+
+Create chart comparing:
+- Revenue PKR
+- User Payouts PKR
+- Net Profit PKR
+
+Section 5:
+"TAX RECORDS"
+
+Columns:
+Month
+Total Revenue PKR
+Total Payouts PKR
+Total Expenses PKR
+Net Profit PKR
+Taxable Income Estimate PKR
+Paid Tax PKR
+Remaining Tax Estimate PKR
+Notes
+
+TAB 3: Raw Export Backup
+
+Purpose:
+This tab is only for backup/debugging.
+It can contain raw event rows from Firestore.
+Keep it simple but hidden by default if possible.
+
+Columns:
+Exported At
+Collection
+Document ID
+Device ID
+Firebase UID
+Type
+Provider
+Amount
+Status
+Raw JSON Summary
+
+Formatting requirements for all tabs:
+- Freeze title/header rows
+- Bold headers
+- Dark background
+- Gold/yellow header fill
+- White text on dark cells
+- Thin gold borders around sections
+- Auto resize columns
+- Align numbers right
+- Align text left
+- Date/time columns readable
+- Currency columns formatted clearly
+- PKR columns clearly labeled
+- USD columns clearly labeled
+- Status columns use colors:
+  completed/confirmed/paid/active = green
+  pending/pending_verification/requested = yellow
+  manual_review = orange
+  rejected/reversed/failed/banned = red
+- Add alternating row shading where possible
+- Do not make columns cramped
+- Do not let text overflow badly
+- Keep dashboard visually clean
+
+Admin panel requirements:
+Google Sheets Reports card should have:
+- Setup / Redesign Sheet button
+- Sync button
+- Open Sheet button
+- Last Sync Time
+- Spreadsheet URL
+- Status
+- Last Error if any
+
+Endpoint behavior:
+POST /api/admin/reports/google-sheets/setup
+- Use existing GOOGLE_SHEETS_SPREADSHEET_ID
+- Rebuild/format clean tabs
+- Create missing tabs
+- Hide or remove old messy tabs if safe
+- Create dashboard layout
+- Create headers
+- Apply colors, borders, frozen rows, widths
+- Create charts where possible
+
+POST /api/admin/reports/google-sheets/sync
+- Pull current Firestore data
+- Fill App Data Dashboard
+- Fill Tax & Finance Dashboard
+- Fill Raw Export Backup
+- Update KPI cards
+- Update charts/ranges
+- Avoid duplicate rows where possible
+- Keep dashboard clean
+
+Data sources:
+Use existing Firestore collections if present:
+- users
+- withdrawals
+- offerEvents
+- adEvents
+- transactions
+- coinTransactions
+- support if needed
+
+If a collection is missing:
+- Do not crash
+- Leave section empty
+- Show 0 in dashboard summary
+
+Important:
+I specifically want:
+- One main tab for user/app data
+- One main tab for tax/finance/profit records
+- One raw backup tab only
+- Dark professional financial dashboard style
+- Better than the reference images
+- Clean readable arrangement
+- No messy 10-tab raw spreadsheet
+
+Acceptance criteria:
+- Existing spreadsheet opens correctly
+- Only clean main tabs are visible
+- App Data Dashboard looks professional
+- Tax & Finance Dashboard looks professional
+- Headers are colored and frozen
+- Status badges/colors work
+- KPI cards are at top
+- Charts appear on Tax & Finance Dashboard
+- Sync writes real Firestore data
+- Backend health still works
+- Admin login still works
+- Mobile app remains unaffected

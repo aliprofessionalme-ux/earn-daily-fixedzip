@@ -1,0 +1,326 @@
+Add automatic Google Sheets reporting to my existing Earn Daily app.
+
+Project stack:
+- Expo React Native mobile app
+- Express backend
+- Firebase Firestore
+- Firebase Admin SDK
+- Existing admin panel
+
+Important:
+Do not rebuild the app from scratch.
+Do not replace Firestore.
+Firestore must remain the main database.
+Google Sheets is only for accounting, reports, tax records, provider revenue, withdrawals, and admin review.
+Do not expose Google Sheets credentials to mobile.
+All Google Sheets logic must be backend-only.
+Keep existing reward, withdrawal, pending/confirmed coins, Energy, admin, support, transaction, and provider logic unchanged.
+
+Google Sheets goal:
+I do not want to manually create a Google Sheet, tabs, headers, or formatting.
+Backend should automatically create a clean, well-formatted Google Spreadsheet if no spreadsheet ID is configured.
+If a spreadsheet already exists later, backend should use it and create missing tabs/headers automatically.
+
+Use these backend-only Replit Secrets:
+
+GOOGLE_SHEETS_ENABLED=true
+GOOGLE_SHEETS_CLIENT_EMAIL=
+GOOGLE_SHEETS_PRIVATE_KEY=
+GOOGLE_SHEETS_OWNER_EMAIL=
+
+GOOGLE_SHEETS_SPREADSHEET_ID is optional.
+Do not require GOOGLE_SHEETS_SPREADSHEET_ID.
+If GOOGLE_SHEETS_SPREADSHEET_ID is missing, empty, undefined, or equal to AUTO_CREATE, create a new spreadsheet automatically.
+Backend must not crash if GOOGLE_SHEETS_SPREADSHEET_ID is missing.
+
+Use:
+- Google Sheets API for creating spreadsheets, tabs, headers, data writing, and formatting.
+- Google Drive API for sharing the created spreadsheet with GOOGLE_SHEETS_OWNER_EMAIL as editor.
+
+Backend requirements:
+
+1. Create a backend Google Sheets service/helper module.
+
+Functions:
+- loadGoogleSheetsConfig()
+- getGoogleAuthClient()
+- ensureSpreadsheet()
+- createSpreadsheetIfMissing()
+- ensureTabsAndHeaders()
+- formatSpreadsheet()
+- syncGoogleSheetsReport()
+- appendOrUpdateRowsSafely()
+
+2. Config behavior:
+- If GOOGLE_SHEETS_ENABLED is false or missing, do nothing.
+- Backend must continue normally.
+- Admin panel should show: Google Sheets disabled/not configured.
+- If required secrets are missing, backend must not crash.
+- Do not log or expose GOOGLE_SHEETS_PRIVATE_KEY.
+
+3. Spreadsheet creation:
+If Google Sheets is enabled and no spreadsheet ID exists:
+- Create a spreadsheet named "Earn Daily Records".
+- Create required tabs.
+- Add headers.
+- Apply formatting.
+- Share the spreadsheet with GOOGLE_SHEETS_OWNER_EMAIL as editor.
+- Return spreadsheetId and spreadsheetUrl from setup endpoint.
+- Show spreadsheet URL in admin panel.
+- Log spreadsheetId and spreadsheetUrl safely.
+- Do not require me to manually create the spreadsheet.
+
+4. Existing spreadsheet behavior:
+If GOOGLE_SHEETS_SPREADSHEET_ID exists later:
+- Use the existing spreadsheet.
+- Create any missing tabs.
+- Add missing headers.
+- Do not duplicate headers.
+- Do not duplicate old rows where possible.
+
+Required tabs:
+
+Dashboard
+Daily Summary
+Provider Revenue
+Withdrawals
+Offerwall Events
+Ad Events
+Top Users
+Tax Records
+Manual Notes
+
+Tab: Dashboard
+Show clean summary sections:
+- Today Date
+- Last Sync Time
+- Total Revenue USD
+- Estimated Revenue PKR
+- Confirmed User Liability PKR
+- Paid Withdrawals PKR
+- Pending Rewards Coins
+- Confirmed Coins
+- Net Profit PKR
+- Active Users
+- Tasks Completed
+- Ads Watched
+- Total Energy Given
+- Pending Withdrawals Count
+- Manual Review Users Count
+
+Tab: Daily Summary
+Columns:
+Date
+Active Users
+New Users
+Offer Tasks Completed
+Ads Watched
+Provider Revenue USD
+Estimated Revenue PKR
+Pending Coins Added
+Confirmed Coins Added
+Withdrawals Requested PKR
+Withdrawals Paid PKR
+Net Profit PKR
+Notes
+
+Tab: Provider Revenue
+Columns:
+Date
+Provider
+Revenue USD
+Revenue PKR
+Pending Coins
+Confirmed Coins
+Rejected Coins
+Reversed Coins
+Estimated User Payout PKR
+Estimated Profit PKR
+Tasks Completed
+
+Tab: Withdrawals
+Columns:
+Date
+Withdrawal ID
+Device ID
+Firebase UID
+Amount PKR
+Coins Deducted
+Method
+Account Number
+Status
+Requested At
+Approved At
+Paid At
+Admin Note
+
+Tab: Offerwall Events
+Columns:
+Created At
+Provider
+Device ID
+Firebase UID
+External Transaction ID
+Offer Name
+Offer Category
+Payout USD
+Coins Calculated
+Status
+Verification Hold Until
+Confirmed At
+Rejected At
+Reversed At
+Reason
+
+Tab: Ad Events
+Columns:
+Created At
+Provider
+Device ID
+Ad Type
+Placement ID
+Status
+Energy Given
+Estimated Revenue USD
+
+Tab: Top Users
+Columns:
+Date
+Device ID
+Firebase UID
+Total Revenue USD
+Total Pending Coins
+Total Confirmed Coins
+Total Paid PKR
+Tasks Completed
+Ads Watched
+Risk Score
+Reward Eligible
+
+Tab: Tax Records
+Columns:
+Month
+Total Revenue USD
+Total Revenue PKR
+Total User Payouts PKR
+Gross Profit PKR
+Platform/Bank Fees PKR
+Net Profit PKR
+Notes
+
+Tab: Manual Notes
+Columns:
+Date
+Admin
+Category
+Note
+Related Device ID
+Related Withdrawal ID
+
+Formatting requirements:
+- Freeze first row on every tab.
+- Bold headers.
+- Dark header background.
+- Auto resize columns.
+- Date/time columns formatted clearly.
+- USD columns formatted clearly.
+- PKR columns formatted clearly.
+- Status colors:
+  pending / pending_verification = yellow
+  confirmed / paid / active = green
+  rejected / reversed / banned = red
+  manual_review = orange
+- Dashboard should look clean and easy to understand.
+- Sheet should be readable for accounting/tax review.
+- Do not make the sheet messy or overloaded.
+
+Admin panel requirements:
+
+Add a "Google Sheets Reports" card/section in admin dashboard.
+
+It should show:
+- Google Sheets status: configured / not configured / disabled
+- Spreadsheet ID
+- Spreadsheet URL
+- Last sync time
+- Setup button
+- Sync button
+- Open Sheet button
+- Friendly error message if credentials are missing
+
+Add admin endpoints:
+
+GET /api/admin/reports/google-sheets/status
+Returns:
+- enabled
+- configured
+- spreadsheetId
+- spreadsheetUrl
+- lastSyncAt
+- missingSecrets
+- lastError
+
+POST /api/admin/reports/google-sheets/setup
+Does:
+- Check credentials.
+- Create spreadsheet if missing.
+- Create tabs and headers.
+- Apply formatting.
+- Share with GOOGLE_SHEETS_OWNER_EMAIL.
+- Return spreadsheetId and spreadsheetUrl.
+- Do not crash if GOOGLE_SHEETS_SPREADSHEET_ID is missing.
+
+POST /api/admin/reports/google-sheets/sync
+Does:
+- Read Firestore records.
+- Sync report data into Google Sheets.
+- Update Dashboard tab.
+- Avoid duplicate rows where possible.
+- Return sync result.
+
+Data source:
+Use existing Firestore collections/data:
+- users
+- withdrawals
+- offerEvents
+- adEvents
+- coinTransactions or transactions if present
+- support if needed
+- provider revenue fields if present
+
+Sync behavior:
+- Prefer manual/admin sync first.
+- Do not write every small app event in real time if it slows backend.
+- Later daily scheduled sync can be added.
+- Sync should not affect app reward logic.
+- Sync should not affect withdrawal logic.
+- Sync should not affect balances.
+
+Security:
+- Never expose GOOGLE_SHEETS_PRIVATE_KEY in mobile, admin UI, API responses, or logs.
+- Do not send Google credentials to the frontend.
+- Only backend/admin can setup or sync Google Sheets.
+- Admin endpoints must require existing admin authentication/session.
+- If Google API fails, backend must continue running and show friendly admin error.
+
+Package requirement:
+Install only necessary backend packages for Google Sheets/Drive API.
+Do not break existing backend build.
+Do not break mobile app.
+Do not add Google Sheets packages to the mobile app.
+
+Acceptance criteria:
+- Backend starts even if Google Sheets secrets are missing.
+- Admin shows Google Sheets not configured if missing.
+- With secrets added, admin setup creates a new spreadsheet automatically.
+- No manual spreadsheet creation is required.
+- Spreadsheet has all required tabs.
+- Headers are created automatically.
+- Formatting is applied.
+- Spreadsheet is shared with GOOGLE_SHEETS_OWNER_EMAIL.
+- Admin shows Open Sheet button.
+- Sync button writes Firestore report data to Google Sheets.
+- No duplicate headers.
+- Backend health still works at /api/healthz.
+- Admin login still works.
+- Mobile app remains unaffected.

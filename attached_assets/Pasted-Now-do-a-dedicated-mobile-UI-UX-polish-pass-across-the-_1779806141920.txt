@@ -1,0 +1,98 @@
+Now do a dedicated mobile UI/UX polish pass across the entire app. Do not break backend logic.
+
+The current UI has serious mobile layout issues:
+- stat cards are unnecessarily large/tall
+- text is wrapping badly
+- labels like "Confirmed" are breaking into multiple lines
+- summary text is cramped and hard to read
+- spacing, padding, and alignment are inconsistent
+- some sections look unprofessional on narrow mobile screens
+
+Fix the UI professionally and make it fully responsive for mobile.
+
+Priority screens:
+1. Home screen
+2. Games / Energy screen
+3. Offerwall / Earning Tasks screen
+4. Wallet
+5. Withdrawals
+6. Support
+7. How It Works
+
+Specific requirements:
+
+A) Home screen stats section
+- Redesign the top 3 stat cards (Energy, Confirmed, Pending)
+- Make them compact, clean, and equal height
+- Prevent text wrapping like "Confirmed" splitting into two lines
+- Ensure icon, label, and numeric value align properly
+- Use responsive widths so cards fit well on smaller mobile screens
+- Reduce unnecessary vertical height
+- Add proper padding and spacing
+- If needed, reduce label font slightly or allow a better layout structure, but do not let labels break awkwardly
+
+B) Summary text under stats
+- The text like:
+  "PKR 0.00 withdrawable - 1,000 confirmed coins = PKR 20"
+  should be redesigned for readability
+- Either:
+  1. split it into 2 clean lines, or
+  2. convert it into a compact info row/card
+- Do not let it look squeezed or overflow
+- Make the conversion explanation easy to understand
+
+C) General mobile responsiveness
+- Audit every screen for:
+  - overflow
+  - text wrapping
+  - broken alignment
+  - card height issues
+  - button sizing
+  - icon alignment
+  - improper margins/padding
+  - bottom navigation label fit
+- Ensure everything looks correct on narrow mobile widths
+- Avoid fixed widths/heights that break on small screens
+- Use flex properly
+- Make safe use of gap, paddingHorizontal, paddingVertical, minHeight, flexShrink, and responsive text sizing where needed
+
+D) Typography cleanup
+- Improve text hierarchy:
+  - section titles should be clear
+  - labels readable
+  - values prominent
+  - helper text subtle but readable
+- Prevent awkward word breaks
+- Do not let important labels wrap unless absolutely necessary
+- Use lineHeight properly for clean appearance
+
+E) Reusable components
+- Refactor repeated UI pieces into clean reusable components if needed:
+  - stat card
+  - section card
+  - list item
+  - summary row
+- Make those reusable components responsive by default
+
+F) UX polish
+- Improve visual balance without changing the app’s core design language
+- Keep the app modern and professional
+- If a feature is not implemented, show a clean disabled/Coming Soon state
+- Do not expose provider names in user-facing UI
+
+G) Validation
+- Check every screen manually after changes
+- Specifically verify no broken layout on small mobile widths
+- Run mobile typecheck after UI changes
+
+Important:
+- Do not redesign the business logic
+- Do not break navigation
+- Do not break Energy, Pending Coins, Confirmed Coins, withdrawal, support, or task flows
+- Focus on layout polish, spacing, readability, and responsiveness
+
+After finishing, report:
+1. Which screens were fixed
+2. Which components were refactored
+3. What text wrapping/overflow issues were resolved
+4. Any screens that still need manual design improvement
