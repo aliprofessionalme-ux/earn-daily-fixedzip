@@ -23,7 +23,8 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
       </View>
 
       <Text style={[styles.title, { color: colors.foreground }]}>Earn Daily</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Secure rewards · Coins · PKR withdrawals</Text>
+      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Secure rewards - Coins - PKR withdrawals</Text>
+      <Text style={[styles.credit, { color: colors.gold }]}>Design & Developed by Muhammad Ali Irfan Khan</Text>
 
       <View style={[styles.statusCard, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.10)" }]}> 
         {hasError ? (
@@ -54,9 +55,10 @@ const styles = StyleSheet.create({
   glowPurple: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(124,58,237,0.18)", bottom: -80, left: -90 },
   logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, padding: 5, marginBottom: 18, shadowColor: "#F59E0B", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
   logoInner: { flex: 1, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  title: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: 0.2, textAlign: "center" },
+  title: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: 0, textAlign: "center" },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 6, textAlign: "center" },
-  statusCard: { width: "100%", marginTop: 28, borderWidth: 1, borderRadius: 20, padding: 18, alignItems: "center", gap: 8 },
+  credit: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: "center" },
+  statusCard: { width: "100%", marginTop: 24, borderWidth: 1, borderRadius: 20, padding: 18, alignItems: "center", gap: 8 },
   loadingText: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, textAlign: "center", marginTop: 6 },
   loadingSub: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, textAlign: "center" },
   errorTitle: { fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 21, marginTop: 4, textAlign: "center" },
