@@ -6,6 +6,7 @@ import {
   handleRouteError,
   storeManualReviewOfferEvent,
 } from "../services/firebase-admin.js";
+import { recordCompletedTask } from "../services/progress.js";
 
 const router = Router();
 
@@ -230,6 +231,9 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
       rawPayload: parsed.rawPayload,
       status: "completed",
     });
+    if (result.success && !result.duplicate) {
+      await recordCompletedTask(parsed.deviceId);
+    }
     res.json(result);
   } catch (err) {
     req.log.error({ err, provider, deviceId: parsed.deviceId }, `Error processing ${provider} webhook`);
