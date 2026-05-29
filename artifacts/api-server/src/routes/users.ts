@@ -14,6 +14,14 @@ import {
   unlockExtraTaskSlot,
 } from "../services/firebase-admin.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
+import {
+  applyReferralCode,
+  ensureReferralCode,
+  getLeaderboard,
+  getReferralSummary,
+  recordDailyEnergy,
+  updateDisplayName,
+} from "../services/progress.js";
 
 const router = Router();
 
@@ -31,6 +39,14 @@ const initSchema = z.object({
 const supportSchema = z.object({
   issueType: z.string().min(2).max(60),
   message: z.string().min(5).max(2000),
+});
+
+const profileSchema = z.object({
+  displayName: z.string().trim().min(2).max(40),
+});
+
+const referralApplySchema = z.object({
+  referralCode: z.string().trim().min(4).max(64),
 });
 
 function sendError(res: import("express").Response, err: unknown, fallback: string) {
@@ -61,10 +77,21 @@ router.post("/init", async (req, res) => {
 
   try {
     const result = await initUser(parsed.data);
+    await ensureReferralCode(result.user.deviceId);
     res.json({ ...serializeUser(result.user), duplicateRestored: result.duplicateRestored, authWarning: result.authWarning ?? null });
   } catch (err) {
     req.log.error({ err }, "Error initializing user");
     sendError(res, err, "Unable to initialize user.");
+  }
+});
+
+router.get("/leaderboard", requireFirebaseAuth, async (req, res) => {
+  try {
+    const limit = Number(req.query.limit ?? 50);
+    res.json(await getLeaderboard(Number.isFinite(limit) ? limit : 50));
+  } catch (err) {
+    req.log.error({ err }, "Error fetching leaderboard");
+    sendError(res, err, "Unable to load leaderboard.");
   }
 });
 
@@ -77,10 +104,54 @@ router.get("/:deviceId", requireFirebaseAuth, async (req, res) => {
       res.status(404).json({ error: "User not found.", code: "user_not_found" });
       return;
     }
-    res.json(serializeUser(user));
+    await ensureReferralCode(deviceId);
+    const refreshed = await getUserDoc(deviceId);
+    res.json(serializeUser(refreshed ?? user));
   } catch (err) {
     req.log.error({ err }, "Error fetching user");
     sendError(res, err, "Unable to fetch user.");
+  }
+});
+
+router.patch("/:deviceId/profile", requireFirebaseAuth, async (req, res) => {
+  const parsed = profileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Name must be 2 to 40 characters.", code: "invalid_display_name" });
+    return;
+  }
+
+  try {
+    const deviceId = String(req.params.deviceId);
+    await updateDisplayName(deviceId, parsed.data.displayName);
+    const user = await getUserDoc(deviceId);
+    res.json({ success: true, user: user ? serializeUser(user) : null });
+  } catch (err) {
+    req.log.error({ err }, "Error updating profile");
+    sendError(res, err, "Unable to update profile.");
+  }
+});
+
+router.get("/:deviceId/referral", requireFirebaseAuth, async (req, res) => {
+  try {
+    res.json(await getReferralSummary(String(req.params.deviceId)));
+  } catch (err) {
+    req.log.error({ err }, "Error fetching referral summary");
+    sendError(res, err, "Unable to load referral summary.");
+  }
+});
+
+router.post("/:deviceId/referral/apply", requireFirebaseAuth, async (req, res) => {
+  const parsed = referralApplySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Enter a valid referral code.", code: "invalid_referral_code" });
+    return;
+  }
+
+  try {
+    res.json(await applyReferralCode(String(req.params.deviceId), parsed.data.referralCode));
+  } catch (err) {
+    req.log.error({ err }, "Error applying referral code");
+    sendError(res, err, "Unable to apply referral code.");
   }
 });
 
@@ -162,7 +233,9 @@ router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
 
 router.post("/:deviceId/checkin", requireFirebaseAuth, async (req, res) => {
   try {
-    res.json(await creditCheckIn(String(req.params.deviceId)));
+    const result = await creditCheckIn(String(req.params.deviceId));
+    await recordDailyEnergy(String(req.params.deviceId), Number(result.energyAwarded ?? 0));
+    res.json(result);
   } catch (err) {
     req.log.error({ err }, "Error during check-in");
     sendError(res, err, "Reward failed. Please try again.");
@@ -176,6 +249,7 @@ router.post("/:deviceId/spin", requireFirebaseAuth, async (req, res) => {
     const baseEnergyAwarded = Number(result.energyAwarded ?? 0);
     const energyAwarded = Math.max(baseEnergyAwarded, pickEnergyReward(SPIN_REWARDS));
     const adjusted = await topUpEnergyToReward(deviceId, baseEnergyAwarded, energyAwarded, "Spin random Energy bonus");
+    await recordDailyEnergy(deviceId, energyAwarded);
 
     res.json({
       ...result,
@@ -197,6 +271,7 @@ router.post("/:deviceId/scratch", requireFirebaseAuth, async (req, res) => {
     const baseEnergyAwarded = Number(result.energyAwarded ?? 0);
     const energyAwarded = Math.max(baseEnergyAwarded, pickEnergyReward(SCRATCH_REWARDS));
     const adjusted = await topUpEnergyToReward(deviceId, baseEnergyAwarded, energyAwarded, "Scratch random Energy bonus");
+    await recordDailyEnergy(deviceId, energyAwarded);
 
     res.json({
       ...result,
