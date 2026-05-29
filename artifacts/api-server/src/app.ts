@@ -5,6 +5,20 @@ import router from "./routes";
 import adminPanelRouter from "./routes/admin.js";
 import { logger } from "./lib/logger";
 
+const DEFAULT_PROVIDER_COINS_PER_USD = "5000";
+const providerCoinRateKeys = [
+  "MONLIX_COINS_PER_USD",
+  "TAPJOY_COINS_PER_USD",
+  "AYET_COINS_PER_USD",
+  "AYET_USD_TO_COINS",
+  "PUBSCALE_COINS_PER_USD",
+] as const;
+
+// Product rule: a 1 USD offer payout equals 5000 coins.
+for (const key of providerCoinRateKeys) {
+  process.env[key] = DEFAULT_PROVIDER_COINS_PER_USD;
+}
+
 const app: Express = express();
 
 app.use(
