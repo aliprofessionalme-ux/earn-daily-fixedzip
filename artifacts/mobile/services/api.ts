@@ -66,6 +66,20 @@ export interface UserDocument {
   firebaseUid?: string | null;
   authMode: "firebase-anonymous" | "device-only";
   authVerified: boolean;
+  displayName?: string | null;
+  referralCode?: string | null;
+  referredByDeviceId?: string | null;
+  referralBonusAwarded?: boolean;
+  referralBonusCoinsEarned?: number;
+  referredByCode?: string | null;
+  dailyTasksCompletedToday?: number;
+  lastDailyTaskDate?: string | null;
+  currentDailyStreak?: number;
+  longestDailyStreak?: number;
+  dailyEnergyEarnedToday?: number;
+  lastDailyEnergyDate?: string | null;
+  lifetimeCompletedTasks?: number;
+  lifetimeEnergyEarned?: number;
   // Legacy single balance (kept for backward compat, synced with confirmed)
   coinsBalance: number;
   pkrBalance: number;
@@ -106,6 +120,7 @@ export interface RewardResult {
   balanceAfterEnergy?: number;
   spinsLeft?: number;
   scratchLeft?: number;
+  rewardSegments?: readonly number[];
 }
 
 export interface WithdrawalDocument {
@@ -116,13 +131,53 @@ export interface WithdrawalDocument {
   accountTitle: string;
   amountPKR: number;
   coinsDeducted: number;
-  status: "pending" | "approved" | "rejected" | "paid";
+  status: "pending" | "review" | "approved" | "rejected" | "paid";
   adminNote: string | null;
   rejectionReason: string | null;
   createdAt: string;
   updatedAt: string;
   processedAt: string | null;
   paidAt: string | null;
+}
+
+export interface LeaderboardUser {
+  rank: number;
+  maskedUserId: string;
+  displayName: string;
+  confirmedCoinsBalance: number;
+  pendingCoinsBalance: number;
+  energyBalance: number;
+  currentDailyStreak: number;
+  dailyTasksCompletedToday: number;
+  lastActiveAt?: string | null;
+}
+
+export interface ReferralSummary {
+  referralCode: string;
+  referralUrl: string;
+  bonusCoins: number;
+  requiredTasks: number;
+  requiredEnergy: number;
+  totalReferred: number;
+  qualifiedReferrals: number;
+  pendingReferrals: number;
+  referredUsers: Array<{
+    maskedUserId: string;
+    displayName: string;
+    qualified: boolean;
+    tasksToday: number;
+    energyToday: number;
+    joinedAt?: string | null;
+  }>;
+}
+
+export interface WithdrawalEligibility {
+  eligible: boolean;
+  reasons: string[];
+  tasksToday: number;
+  requiredDailyTasks: number;
+  streakActive: boolean;
+  currentDailyStreak: number;
 }
 
 export type TransactionType =
@@ -138,7 +193,8 @@ export type TransactionType =
   | "withdrawal_hold"
   | "withdrawal_refund"
   | "admin_adjustment"
-  | "energy_purchase_slot";
+  | "energy_purchase_slot"
+  | "referral_bonus";
 
 export interface TransactionDocument {
   transactionId: string;
@@ -213,6 +269,14 @@ export interface ProviderLaunchStatus {
   watchAdsEnergy: ProviderLaunchItem;
 }
 
+export interface ProviderCallbackUrls {
+  monlix: string;
+  tapjoy: string;
+  ayet: string;
+  pubscale: string;
+  unity: string;
+}
+
 export interface AppSettings {
   coinRateCoins: number;
   coinRatePKR: number;
@@ -232,6 +296,7 @@ export interface AppSettings {
   scratchEnergyReward: number;
   unityRewardedEnergy: number;
   providerLaunch?: ProviderLaunchStatus;
+  providerCallbackUrls?: ProviderCallbackUrls;
   timezone?: string;
 }
 
@@ -289,6 +354,22 @@ export async function initUser(payload: InitUserPayload): Promise<UserDocument> 
 
 export async function getUser(deviceId: string): Promise<UserDocument> {
   return apiFetch<UserDocument>(`/users/${encodeURIComponent(deviceId)}`);
+}
+
+export async function updateUserProfile(deviceId: string, payload: { displayName: string }): Promise<{ success: boolean; user: UserDocument | null }> {
+  return apiFetch(`/users/${encodeURIComponent(deviceId)}/profile`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function getLeaderboard(limit = 50): Promise<LeaderboardUser[]> {
+  return apiFetch<LeaderboardUser[]>(`/users/leaderboard?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function getReferralSummary(deviceId: string): Promise<ReferralSummary> {
+  return apiFetch<ReferralSummary>(`/users/${encodeURIComponent(deviceId)}/referral`);
+}
+
+export async function applyReferralCode(deviceId: string, referralCode: string): Promise<{ success: boolean; message: string }> {
+  return apiFetch(`/users/${encodeURIComponent(deviceId)}/referral/apply`, { method: "POST", body: JSON.stringify({ referralCode }) });
 }
 
 export async function checkIn(deviceId: string): Promise<RewardResult> {
