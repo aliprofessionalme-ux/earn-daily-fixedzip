@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import { SectionTitle } from "@/components/SectionTitle";
 export default function ReferralScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ code?: string }>();
   const { deviceId, refreshUser } = useUser();
   const topPad = Platform.OS === "web" ? 28 : insets.top + 8;
   const [summary, setSummary] = useState<ReferralSummary | null>(null);
@@ -21,10 +22,20 @@ export default function ReferralScreen() {
   const [applying, setApplying] = useState(false);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
 
+  useEffect(() => {
+    const scannedCode = Array.isArray(params.code) ? params.code[0] : params.code;
+    if (scannedCode) setCodeInput(String(scannedCode).trim().toUpperCase());
+  }, [params.code]);
+
+  const referralLink = useMemo(() => {
+    if (!summary?.referralCode) return "";
+    return `mobile://referral?code=${encodeURIComponent(summary.referralCode)}`;
+  }, [summary?.referralCode]);
+
   const qrUrl = useMemo(() => {
-    if (!summary?.referralUrl) return "";
-    return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(summary.referralUrl)}`;
-  }, [summary?.referralUrl]);
+    if (!referralLink) return "";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(referralLink)}`;
+  }, [referralLink]);
 
   const load = useCallback(async () => {
     if (!deviceId) return;
@@ -39,7 +50,7 @@ export default function ReferralScreen() {
   const shareReferral = async () => {
     if (!summary) return;
     await Share.share({
-      message: `Join Earn Daily with my referral code ${summary.referralCode}. Bonus unlocks after 5 tasks and 5 Energy. ${summary.referralUrl}`,
+      message: `Join Earn Daily with my referral code ${summary.referralCode}. Bonus unlocks after 5 tasks and 5 Energy. ${referralLink}`,
     }).catch(() => {});
   };
 
@@ -87,7 +98,7 @@ export default function ReferralScreen() {
       ) : summary ? (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === "web" ? 34 : 112 }} showsVerticalScrollIndicator={false}>
           <View style={[styles.qrCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <View style={[styles.qrBox, { backgroundColor: "#fff" }]}>
+            <View style={[styles.qrBox, { backgroundColor: "#fff" }]}> 
               {qrUrl ? <Image source={{ uri: qrUrl }} style={styles.qrImage} /> : null}
             </View>
             <Text style={[styles.codeLabel, { color: colors.mutedForeground }]}>Your referral code</Text>
