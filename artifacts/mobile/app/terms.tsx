@@ -9,10 +9,14 @@ const terms = [
   "No VPN, proxy or traffic masking is allowed.",
   "No emulator abuse, bots, automation, fake activity or scripted actions.",
   "One account/device/user only. Duplicate or suspicious accounts can be restricted.",
+  "Users must complete 5 valid daily tasks and keep the daily streak active before requesting withdrawal.",
+  "If a user earns this month and submits a withdrawal request, the withdrawal is paid next month.",
+  "Reason for payout delay: advertiser payments arrive late, so withdrawals are released after advertiser settlement.",
+  "Referral bonus is paid to the referrer only after the referred user completes 5 valid tasks and earns 5 Energy.",
+  "Withdrawals may show Pending Review, In Review, Approved, Rejected, or Paid status.",
+  "If a withdrawal is rejected, the rejection reason will be shown to the user and held coins are refunded when applicable.",
   "Suspicious activity may lead to ban, reward removal or withdrawal rejection.",
-  "Withdrawals may be reviewed manually before approval and payment.",
   "Fake or fraud traffic is forbidden. Rewards depend on valid activity only.",
-  "The app may reject suspicious withdrawals. Rejected withdrawals refund held coins when applicable.",
   "Offerwall rewards may require validation from the offer provider before credit is final.",
 ];
 export default function TermsScreen() {
