@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { getFirestoreDb, handleRouteError, serializeDoc, submitWithdrawal } from "../services/firebase-admin.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
+import { getWithdrawalEligibility } from "../services/progress.js";
 
 const router = Router({ mergeParams: true });
 
@@ -38,6 +39,15 @@ router.post("/", requireFirebaseAuth, async (req: Request, res: Response) => {
 
   try {
     const deviceId = String(req.params.deviceId);
+    const eligibility = await getWithdrawalEligibility(deviceId);
+    if (!eligibility.eligible) {
+      res.status(400).json({
+        error: `Withdrawal is locked. ${eligibility.reasons.join(" ")}`,
+        code: "withdrawal_requirements_not_met",
+        eligibility,
+      });
+      return;
+    }
     res.json(await submitWithdrawal(deviceId, parsed.data));
   } catch (err) {
     req.log.error({ err }, "Error submitting withdrawal");
