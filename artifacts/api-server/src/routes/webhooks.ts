@@ -157,6 +157,11 @@ function parseWebhook(req: Request): ParsedWebhook {
   };
 }
 
+function coinsOverrideFor(parsed: ParsedWebhook): number | null | undefined {
+  // If USD payout is present, calculate coins from our 5000 coins/USD rule instead of provider point values.
+  return parsed.payoutUSD && parsed.payoutUSD > 0 ? null : parsed.coinsOverride;
+}
+
 function isReversalStatus(status: string): boolean {
   return ["rejected", "reject", "chargeback", "reversal", "reverse", "reversed", "fraud", "cancelled", "canceled"].includes(status);
 }
@@ -187,7 +192,7 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
           provider,
           externalTransactionId: parsed.externalTransactionId,
           payoutUSD: parsed.payoutUSD,
-          coinsOverride: parsed.coinsOverride,
+          coinsOverride: coinsOverrideFor(parsed),
           offerName: parsed.offerName,
           rawPayload: parsed.rawPayload,
           reason: "AYET_POSTBACK_SECRET missing; callback stored without balance credit.",
@@ -220,7 +225,7 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
       provider,
       externalTransactionId: parsed.externalTransactionId,
       payoutUSD: parsed.payoutUSD,
-      coinsOverride: parsed.coinsOverride,
+      coinsOverride: coinsOverrideFor(parsed),
       offerName: parsed.offerName,
       rawPayload: parsed.rawPayload,
       status: "completed",
