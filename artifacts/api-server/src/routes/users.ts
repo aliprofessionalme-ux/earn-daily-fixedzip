@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  adjustUserEnergy,
   creditCheckIn,
   creditScratch,
   creditSpin,
@@ -35,6 +36,19 @@ const supportSchema = z.object({
 function sendError(res: import("express").Response, err: unknown, fallback: string) {
   const normalized = handleRouteError(err, fallback);
   res.status(normalized.status).json(normalized.body);
+}
+
+const SPIN_REWARDS = [1, 2, 3, 4, 5, 8] as const;
+const SCRATCH_REWARDS = [1, 2, 3, 4, 6, 10] as const;
+
+function pickEnergyReward(rewards: readonly number[]): number {
+  return rewards[Math.floor(Math.random() * rewards.length)] ?? 1;
+}
+
+async function topUpEnergyToReward(deviceId: string, baseEnergyAwarded: number, targetEnergyAwarded: number, reason: string) {
+  const extraEnergy = Math.max(0, targetEnergyAwarded - baseEnergyAwarded);
+  if (extraEnergy <= 0) return null;
+  return adjustUserEnergy(deviceId, extraEnergy, reason);
 }
 
 // Public: init does its own Firebase token verification
@@ -157,7 +171,19 @@ router.post("/:deviceId/checkin", requireFirebaseAuth, async (req, res) => {
 
 router.post("/:deviceId/spin", requireFirebaseAuth, async (req, res) => {
   try {
-    res.json(await creditSpin(String(req.params.deviceId)));
+    const deviceId = String(req.params.deviceId);
+    const result = await creditSpin(deviceId);
+    const baseEnergyAwarded = Number(result.energyAwarded ?? 0);
+    const energyAwarded = Math.max(baseEnergyAwarded, pickEnergyReward(SPIN_REWARDS));
+    const adjusted = await topUpEnergyToReward(deviceId, baseEnergyAwarded, energyAwarded, "Spin random Energy bonus");
+
+    res.json({
+      ...result,
+      message: `You won ${energyAwarded} Energy!`,
+      energyAwarded,
+      balanceAfterEnergy: adjusted?.energyAfter ?? result.balanceAfterEnergy,
+      rewardSegments: SPIN_REWARDS,
+    });
   } catch (err) {
     req.log.error({ err }, "Error recording spin");
     sendError(res, err, "Spin reward failed. Please try again.");
@@ -166,7 +192,19 @@ router.post("/:deviceId/spin", requireFirebaseAuth, async (req, res) => {
 
 router.post("/:deviceId/scratch", requireFirebaseAuth, async (req, res) => {
   try {
-    res.json(await creditScratch(String(req.params.deviceId)));
+    const deviceId = String(req.params.deviceId);
+    const result = await creditScratch(deviceId);
+    const baseEnergyAwarded = Number(result.energyAwarded ?? 0);
+    const energyAwarded = Math.max(baseEnergyAwarded, pickEnergyReward(SCRATCH_REWARDS));
+    const adjusted = await topUpEnergyToReward(deviceId, baseEnergyAwarded, energyAwarded, "Scratch random Energy bonus");
+
+    res.json({
+      ...result,
+      message: `You won ${energyAwarded} Energy!`,
+      energyAwarded,
+      balanceAfterEnergy: adjusted?.energyAfter ?? result.balanceAfterEnergy,
+      rewardSegments: SCRATCH_REWARDS,
+    });
   } catch (err) {
     req.log.error({ err }, "Error recording scratch");
     sendError(res, err, "Scratch reward failed. Please try again.");
