@@ -91,9 +91,9 @@ export async function applyReferralCode(deviceId: string, referralCode: string) 
 
 async function maybeAwardReferralBonus(
   tx: admin.firestore.Transaction,
-  db: FirebaseFirestore.Firestore,
-  referredRef: FirebaseFirestore.DocumentReference,
-  referredUser: FirebaseFirestore.DocumentData,
+  db: admin.firestore.Firestore,
+  referredRef: admin.firestore.DocumentReference,
+  referredUser: admin.firestore.DocumentData,
   tasksToday: number,
   energyToday: number,
 ) {
