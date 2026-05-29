@@ -19,7 +19,6 @@ import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { getAppSettings, getWithdrawals, type WithdrawalDocument } from "@/services/api";
 import { CompactStatCard } from "@/components/CompactStatCard";
-import { SectionTitle } from "@/components/SectionTitle";
 
 const PAYMENT_METHODS = ["Easypaisa", "JazzCash"] as const;
 const FALLBACK_MIN_WITHDRAWAL_PKR = 500;
@@ -30,18 +29,32 @@ function formatPKR(n: number) {
 }
 
 function formatDate(ts: string | null | undefined): string {
-  if (!ts) return "—";
+  if (!ts) return "-";
   try {
     return new Date(ts).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
-  } catch { return "—"; }
+  } catch { return "-"; }
+}
+
+function todayKey() {
+  try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" }); }
+  catch { return new Date().toISOString().split("T")[0]; }
+}
+
+function statusLabel(status: string) {
+  if (status === "pending") return "Pending Review";
+  if (status === "review") return "In Review";
+  if (status === "approved") return "Approved";
+  if (status === "paid") return "Paid";
+  if (status === "rejected") return "Rejected";
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colors = useColors();
   const palette = status === "paid" || status === "approved" ? colors.green : status === "rejected" ? colors.destructive : colors.gold;
   return (
-    <View style={[styles.badge, { backgroundColor: palette + "20", borderColor: palette + "44" }]}>
-      <Text style={[styles.badgeText, { color: palette }]}>{status.charAt(0).toUpperCase() + status.slice(1)}</Text>
+    <View style={[styles.badge, { backgroundColor: palette + "20", borderColor: palette + "44" }]}> 
+      <Text style={[styles.badgeText, { color: palette }]}>{statusLabel(status)}</Text>
     </View>
   );
 }
@@ -69,6 +82,10 @@ export default function WalletScreen() {
   const pending = user?.pendingCoinsBalance ?? 0;
   const energy = user?.energyBalance ?? 0;
   const pkr = user?.pkrBalance ?? 0;
+  const today = todayKey();
+  const tasksToday = user?.lastDailyTaskDate === today ? user?.dailyTasksCompletedToday ?? 0 : 0;
+  const streakActive = user?.lastDailyTaskDate === today && (user?.currentDailyStreak ?? 0) >= 1;
+  const withdrawalReady = streakActive && tasksToday >= 5;
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +115,10 @@ export default function WalletScreen() {
 
   const handleSubmit = useCallback(async () => {
     const amount = Number(amountPKR);
+    if (!withdrawalReady) {
+      setMessage({ text: "Withdrawal locked. Complete 5 valid tasks today and keep today's streak active before requesting withdrawal.", ok: false });
+      return;
+    }
     if (!accountNumber.trim() || !accountTitle.trim() || !Number.isFinite(amount)) {
       setMessage({ text: "Enter account number, title and valid amount.", ok: false });
       return;
@@ -114,17 +135,18 @@ export default function WalletScreen() {
       setMessage({ text: result.message, ok: true });
       setAccountNumber(""); setAccountTitle(""); setAmountPKR("");
       await loadHistory();
+      setActiveTab("history");
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setMessage({ text: error instanceof Error ? error.message : "Failed to submit withdrawal.", ok: false });
     } finally {
       setSubmitting(false);
     }
-  }, [accountNumber, accountTitle, amountPKR, loadHistory, paymentMethod, submitWithdrawal, minWithdrawal]);
+  }, [accountNumber, accountTitle, amountPKR, loadHistory, paymentMethod, submitWithdrawal, minWithdrawal, withdrawalReady]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={["#064E3B", "#0D0D1A"]} style={[styles.header, { paddingTop: topPad + 10 }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}> 
+      <LinearGradient colors={["#064E3B", "#0D0D1A"]} style={[styles.header, { paddingTop: topPad + 10 }]}> 
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Wallet</Text>
         <View style={styles.statsRow}>
           <CompactStatCard icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} sub={formatPKR(pkr)} colors={["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"]} accent={colors.green} />
@@ -133,9 +155,9 @@ export default function WalletScreen() {
         </View>
       </LinearGradient>
 
-      <View style={[styles.tabRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.tabRow, { backgroundColor: colors.card, borderColor: colors.border }]}> 
         {(["withdraw", "history"] as const).map((tab) => (
-          <Pressable key={tab} onPress={() => { setActiveTab(tab); setMessage(null); }} style={[styles.tabBtn, activeTab === tab && { backgroundColor: colors.primary }]}>
+          <Pressable key={tab} onPress={() => { setActiveTab(tab); setMessage(null); }} style={[styles.tabBtn, activeTab === tab && { backgroundColor: colors.primary }]}> 
             <Text style={[styles.tabBtnText, { color: activeTab === tab ? "#fff" : colors.mutedForeground }]}>{tab === "withdraw" ? "Withdraw" : "History"}</Text>
           </Pressable>
         ))}
@@ -143,10 +165,18 @@ export default function WalletScreen() {
 
       {activeTab === "withdraw" ? (
         <ScrollView contentContainerStyle={[styles.form, { paddingBottom: Platform.OS === "web" ? 34 : 112 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={[styles.requireCard, { backgroundColor: withdrawalReady ? colors.green + "12" : colors.gold + "12", borderColor: withdrawalReady ? colors.green + "35" : colors.gold + "35" }]}> 
+            <Feather name={withdrawalReady ? "check-circle" : "lock"} size={17} color={withdrawalReady ? colors.green : colors.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.requireTitle, { color: withdrawalReady ? colors.green : colors.gold }]}>{withdrawalReady ? "Withdrawal unlocked today" : "Withdrawal locked today"}</Text>
+              <Text style={[styles.requireText, { color: colors.mutedForeground }]}>Daily streak: {streakActive ? "Active" : "Not active"} - Tasks: {Math.min(tasksToday, 5)}/5</Text>
+            </View>
+          </View>
+
           {pending > 0 && (
-            <View style={[styles.infoBanner, { backgroundColor: colors.orange + "12", borderColor: colors.orange + "28" }]}>
+            <View style={[styles.infoBanner, { backgroundColor: colors.orange + "12", borderColor: colors.orange + "28" }]}> 
               <Feather name="clock" size={16} color={colors.orange} />
-              <Text style={[styles.infoBannerText, { color: colors.orange }]}>
+              <Text style={[styles.infoBannerText, { color: colors.orange }]}> 
                 {pending.toLocaleString()} pending coins under verification. Only confirmed coins can be withdrawn.
               </Text>
             </View>
@@ -155,7 +185,7 @@ export default function WalletScreen() {
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Payment Method</Text>
           <View style={styles.methodRow}>
             {PAYMENT_METHODS.map((m) => (
-              <Pressable key={m} onPress={() => setPaymentMethod(m)} style={[styles.methodBtn, { backgroundColor: paymentMethod === m ? colors.primary : colors.card, borderColor: paymentMethod === m ? colors.primary : colors.border }]}>
+              <Pressable key={m} onPress={() => setPaymentMethod(m)} style={[styles.methodBtn, { backgroundColor: paymentMethod === m ? colors.primary : colors.card, borderColor: paymentMethod === m ? colors.primary : colors.border }]}> 
                 <Text style={[styles.methodBtnText, { color: paymentMethod === m ? "#fff" : colors.mutedForeground }]}>{m}</Text>
               </Pressable>
             ))}
@@ -172,26 +202,25 @@ export default function WalletScreen() {
 
           {message ? <Text style={[styles.msgText, { color: message.ok ? colors.green : colors.destructive }]}>{message.text}</Text> : null}
 
-          <Pressable disabled={submitting} onPress={handleSubmit} style={({ pressed }) => [{ opacity: pressed ? 0.86 : submitting ? 0.65 : 1 }]}>
-            <LinearGradient colors={[colors.primary, colors.purpleDark]} style={styles.submitBtn}>
+          <Pressable disabled={submitting} onPress={handleSubmit} style={({ pressed }) => [{ opacity: pressed ? 0.86 : submitting ? 0.65 : 1 }]}> 
+            <LinearGradient colors={[colors.primary, colors.purpleDark]} style={styles.submitBtn}> 
               {submitting ? <ActivityIndicator color="#fff" /> : <Feather name="send" size={18} color="#fff" />}
               <Text style={styles.submitBtnText}>{submitting ? "Submitting..." : "Submit Withdrawal"}</Text>
             </LinearGradient>
           </Pressable>
 
-          <View style={[styles.rulesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.rulesCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={styles.rulesHeader}>
               <Feather name="shield" size={16} color={colors.gold} />
               <Text style={[styles.rulesTitle, { color: colors.foreground }]}>Withdrawal rules</Text>
             </View>
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Complete 5 valid daily tasks and keep today's streak active before requesting withdrawal.</Text>
             <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Minimum withdrawal is PKR {minWithdrawal || FALLBACK_MIN_WITHDRAWAL_PKR}.</Text>
             <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Only confirmed coins are withdrawable.</Text>
             <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Rate: {coinRate.coins.toLocaleString()} confirmed coins = PKR {coinRate.pkr}.</Text>
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Pending coins are not withdrawable until verified.</Text>
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Energy cannot be withdrawn.</Text>
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Only one pending withdrawal at a time.</Text>
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>One withdrawal per calendar month.</Text>
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>If rejected, confirmed coins are refunded automatically.</Text>
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>If you earn this month and submit a withdrawal request, payout is scheduled for next month.</Text>
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Reason for delay: advertiser payments arrive late, so withdrawals are paid after advertiser settlement.</Text>
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>Rejected withdrawals show the admin reason and refund held coins when applicable.</Text>
           </View>
         </ScrollView>
       ) : (
@@ -202,7 +231,7 @@ export default function WalletScreen() {
             <View style={styles.center}>
               <Feather name="alert-circle" size={42} color={colors.destructive} />
               <Text style={[styles.emptyText, { color: colors.destructive }]}>{historyError}</Text>
-              <Pressable onPress={loadHistory} style={[styles.retrySmall, { backgroundColor: colors.primary }]}>
+              <Pressable onPress={loadHistory} style={[styles.retrySmall, { backgroundColor: colors.primary }]}> 
                 <Text style={styles.retrySmallText}>Retry</Text>
               </Pressable>
             </View>
@@ -215,12 +244,14 @@ export default function WalletScreen() {
               contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === "web" ? 34 : 112 }}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
-                <View style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}> 
                   <View style={styles.historyLeft}>
                     <Text style={[styles.historyMethod, { color: colors.foreground }]}>{item.paymentMethod}</Text>
-                    <Text style={[styles.historyAccount, { color: colors.mutedForeground }]}>{item.accountNumber} · {item.accountTitle}</Text>
-                    <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>{formatDate(item.createdAt)}</Text>
-                    {item.rejectionReason ? <Text style={[styles.historyDate, { color: colors.destructive }]}>Reason: {item.rejectionReason}</Text> : null}
+                    <Text style={[styles.historyAccount, { color: colors.mutedForeground }]}>{item.accountNumber} - {item.accountTitle}</Text>
+                    <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>Requested: {formatDate(item.createdAt)}</Text>
+                    {item.processedAt ? <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>Updated: {formatDate(item.processedAt)}</Text> : null}
+                    {item.rejectionReason ? <Text style={[styles.reason, { color: colors.destructive }]}>Reason: {item.rejectionReason}</Text> : null}
+                    {item.adminNote ? <Text style={[styles.reason, { color: colors.gold }]}>Admin note: {item.adminNote}</Text> : null}
                   </View>
                   <View style={styles.historyRight}>
                     <Text style={[styles.historyAmount, { color: colors.green }]}>{formatPKR(item.amountPKR)}</Text>
@@ -245,6 +276,9 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, padding: 8, borderRadius: 10, alignItems: "center" },
   tabBtnText: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   form: { padding: 16, gap: 6 },
+  requireCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 4 },
+  requireTitle: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
+  requireText: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 2 },
   infoBanner: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 4 },
   infoBannerText: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 16, flex: 1 },
   label: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 6 },
@@ -269,6 +303,7 @@ const styles = StyleSheet.create({
   historyMethod: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   historyAccount: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16 },
   historyDate: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
+  reason: { fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 16, marginTop: 2 },
   historyAmount: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   badgeText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
