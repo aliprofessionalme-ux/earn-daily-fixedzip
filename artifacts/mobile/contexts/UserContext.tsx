@@ -12,6 +12,7 @@ import {
   recordUnityRewardedComplete as apiRecordUnityRewarded,
   recordUnityInterstitialShown as apiRecordUnityInterstitial,
   unlockExtraTaskSlot as apiUnlockExtraTaskSlot,
+  updateUserProfile as apiUpdateUserProfile,
   setApiFirebaseToken,
   type RewardResult,
   type UserDocument,
@@ -33,6 +34,7 @@ interface UserContextType {
   refreshUser: () => Promise<void>;
   retryInit: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  updateProfile: (displayName: string) => Promise<void>;
   checkIn: () => Promise<RewardResult>;
   spin: () => Promise<RewardResult>;
   scratch: () => Promise<RewardResult>;
@@ -116,6 +118,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return deviceIdentity.deviceId;
   }, [deviceIdentity?.deviceId]);
 
+  const updateProfile = useCallback(async (displayName: string) => {
+    const result = await apiUpdateUserProfile(requireDeviceId(), { displayName });
+    if (result.user) setUser(result.user);
+    else await refreshUser();
+  }, [refreshUser, requireDeviceId]);
+
   const checkIn = useCallback(async () => {
     const result = await apiCheckIn(requireDeviceId());
     await refreshUser();
@@ -175,6 +183,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     refreshUser,
     retryInit: initialize,
     completeOnboarding,
+    updateProfile,
     checkIn,
     spin,
     scratch,
@@ -182,7 +191,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     recordUnityRewardedComplete,
     recordUnityInterstitialShown,
     unlockExtraTaskSlot,
-  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, initialize, isLoading, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, spin, submitWithdrawal, unlockExtraTaskSlot, user]);
+  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, initialize, isLoading, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, spin, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
