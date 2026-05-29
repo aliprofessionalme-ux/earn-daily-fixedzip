@@ -1,8 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
@@ -10,8 +10,13 @@ import { CompactStatCard } from "@/components/CompactStatCard";
 import { SectionTitle } from "@/components/SectionTitle";
 
 function truncate(value?: string | null) {
-  if (!value) return "—";
-  return value.length > 22 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
+  if (!value) return "-";
+  return value.length > 22 ? `${value.slice(0, 10)}...${value.slice(-8)}` : value;
+}
+
+function todayKey() {
+  try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" }); }
+  catch { return new Date().toISOString().split("T")[0]; }
 }
 
 function formatPKR(n: number) { return `PKR ${Number(n || 0).toFixed(2)}`; }
@@ -45,68 +50,124 @@ function ToolRow({ icon, title, subtitle, onPress }: { icon: React.ComponentProp
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, deviceId, installId, firebaseUid, authMode, authVerified, refreshUser } = useUser();
+  const { user, deviceId, installId, firebaseUid, authMode, authVerified, refreshUser, updateProfile } = useUser();
   const topPad = Platform.OS === "web" ? 20 : insets.top;
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [savingName, setSavingName] = useState(false);
+  const [nameNotice, setNameNotice] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => { setDisplayName(user?.displayName ?? ""); }, [user?.displayName]);
 
   const energy = user?.energyBalance ?? 0;
   const pending = user?.pendingCoinsBalance ?? 0;
   const confirmed = user?.confirmedCoinsBalance ?? user?.coinsBalance ?? 0;
   const pkr = user?.pkrBalance ?? 0;
+  const today = todayKey();
+  const tasksToday = user?.lastDailyTaskDate === today ? user?.dailyTasksCompletedToday ?? 0 : 0;
+  const energyToday = user?.lastDailyEnergyDate === today ? user?.dailyEnergyEarnedToday ?? 0 : 0;
+  const streak = user?.lastDailyTaskDate === today ? user?.currentDailyStreak ?? 0 : 0;
+
+  const saveName = async () => {
+    const name = displayName.trim();
+    if (name.length < 2) { setNameNotice({ text: "Enter at least 2 characters.", ok: false }); return; }
+    setSavingName(true); setNameNotice(null);
+    try {
+      await updateProfile(name);
+      setNameNotice({ text: "Name updated.", ok: true });
+    } catch (err) {
+      setNameNotice({ text: err instanceof Error ? err.message : "Unable to update name.", ok: false });
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <LinearGradient colors={["#1A0A3A", "#0D0D1A"]} style={StyleSheet.absoluteFillObject} />
       <ScrollView contentContainerStyle={{ paddingTop: topPad + 14, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>Profile</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Account, wallet and support tools</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Settings, referrals and account tools</Text>
           </View>
-          <Pressable onPress={() => void refreshUser()} style={[styles.refresh, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Pressable onPress={() => void refreshUser()} style={[styles.refresh, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <Feather name="refresh-cw" size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
 
-        {/* Balance summary */}
         <View style={styles.balanceRow}>
           <CompactStatCard icon="zap" label="Energy" value={energy.toLocaleString()} sub="App benefits" colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.gold} />
           <CompactStatCard icon="clock" label="Pending" value={pending.toLocaleString()} sub="Under verification" colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.orange} />
           <CompactStatCard icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} sub={formatPKR(pkr)} colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.green} />
         </View>
 
-        {/* Account status */}
+        <View style={styles.section}>
+          <SectionTitle title="Your name" />
+          <View style={[styles.nameCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <TextInput
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="Set your public name"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={40}
+              style={[styles.nameInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+            />
+            <Pressable disabled={savingName} onPress={saveName} style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}> 
+              {savingName ? <ActivityIndicator color="#fff" /> : <Feather name="save" size={17} color="#fff" />}
+              <Text style={styles.saveText}>Save</Text>
+            </Pressable>
+            {nameNotice ? <Text style={[styles.notice, { color: nameNotice.ok ? colors.green : colors.destructive }]}>{nameNotice.text}</Text> : null}
+          </View>
+        </View>
+
+        <View style={styles.progressGrid}>
+          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <Text style={[styles.progressValue, { color: colors.gold }]}>{streak}</Text>
+            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Daily streak</Text>
+          </View>
+          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <Text style={[styles.progressValue, { color: colors.green }]}>{Math.min(tasksToday, 5)}/5</Text>
+            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Tasks today</Text>
+          </View>
+          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <Text style={[styles.progressValue, { color: colors.orange }]}>{energyToday}</Text>
+            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Energy today</Text>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <SectionTitle title="Account status" />
-          <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.avatar, { backgroundColor: (user?.isBanned ? colors.destructive : colors.green) + "20" }]}>
+          <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={[styles.avatar, { backgroundColor: (user?.isBanned ? colors.destructive : colors.green) + "20" }]}> 
               <Feather name={user?.isBanned ? "x-octagon" : "shield"} size={24} color={user?.isBanned ? colors.destructive : colors.green} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.statusTitle, { color: colors.foreground }]}>{user?.isBanned ? "Account banned" : "Account active"}</Text>
-              <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
+              <Text style={[styles.statusSub, { color: colors.mutedForeground }]}> 
                 {user?.isBanned
                   ? user?.banReason || "Rewards and withdrawals are blocked."
-                  : `${authMode === "firebase-anonymous" ? "Firebase anonymous auth" : "Device-only fallback"} · ${authVerified ? "verified" : "not verified"}`}
+                  : `${authMode === "firebase-anonymous" ? "Firebase anonymous auth" : "Device-only fallback"} - ${authVerified ? "verified" : "not verified"}`}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Account info */}
         <View style={styles.section}>
           <SectionTitle title="Account info" />
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <InfoRow label="Device ID" value={truncate(deviceId)} />
+            <InfoRow label="Referral code" value={user?.referralCode ?? "Open Referral to create"} />
             <InfoRow label="Install ID" value={truncate(installId)} />
             <InfoRow label="Firebase UID" value={truncate(firebaseUid ?? user?.firebaseUid)} />
             <InfoRow label="Auth mode" value={authMode} />
           </View>
         </View>
 
-        {/* Account tools */}
         <View style={styles.section}>
           <SectionTitle title="Account tools" />
           <View style={styles.toolsList}>
+            <ToolRow icon="award" title="Top users" subtitle="Leaderboard with hidden user IDs and coin ranking" onPress={() => router.push("/leaderboard")} />
+            <ToolRow icon="share-2" title="Referral QR" subtitle="Share your referral code and track qualified bonuses" onPress={() => router.push("/referral")} />
             <ToolRow icon="gift" title="Earn Rewards" subtitle="Complete verified tasks for Pending Coins" onPress={() => router.push("/(tabs)/offerwall")} />
             <ToolRow icon="list" title="Transactions" subtitle="View all balance changes and rewards history" onPress={() => router.push("/transactions")} />
             <ToolRow icon="message-circle" title="Support" subtitle="Submit an issue and view previous tickets" onPress={() => router.push("/support")} />
@@ -127,6 +188,15 @@ const styles = StyleSheet.create({
   refresh: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   balanceRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
   section: { marginBottom: 14 },
+  nameCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
+  nameInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
+  saveBtn: { minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  saveText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
+  notice: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, textAlign: "center" },
+  progressGrid: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  progressCard: { flex: 1, borderWidth: 1, borderRadius: 14, padding: 12, alignItems: "center" },
+  progressValue: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 23 },
+  progressLabel: { fontFamily: "Inter_500Medium", fontSize: 10.5, lineHeight: 14, marginTop: 2, textAlign: "center" },
   statusCard: { borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row", gap: 12, alignItems: "center" },
   avatar: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   statusTitle: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20 },
