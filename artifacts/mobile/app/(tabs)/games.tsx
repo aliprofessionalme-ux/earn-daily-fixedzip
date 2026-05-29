@@ -23,7 +23,8 @@ import type { RewardResult } from "@/services/api";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const WHEEL_SIZE = Math.min(260, Math.max(200, SCREEN_WIDTH - 80));
-const SPIN_REWARDS = [1, 1, 1, 1, 1, 1]; // Spin now gives 1 Energy each segment (visual only)
+const SPIN_REWARDS = [1, 2, 3, 4, 5, 8] as const;
+const SCRATCH_REWARDS = [1, 2, 3, 4, 6, 10] as const;
 const SPIN_COLORS = ["#EC4899", "#F59E0B", "#3B82F6", "#8B5CF6", "#10B981", "#EF4444"];
 const SCRATCH_LIMIT = 5;
 const SPIN_LIMIT = 5;
@@ -199,7 +200,7 @@ function ScratchCard({ disabled, onBackendScratch }: { disabled: boolean; onBack
               <>
                 <Feather name="mouse-pointer" size={28} color="#111827" />
                 <Text style={styles.silverTitle}>{disabled ? "Daily limit reached" : "TAP TO REVEAL"}</Text>
-                <Text style={styles.silverText}>Earn Energy rewards</Text>
+                <Text style={styles.silverText}>Earn {SCRATCH_REWARDS[0]}-{SCRATCH_REWARDS[SCRATCH_REWARDS.length - 1]} Energy rewards</Text>
               </>
             ) : (
               <Animated.View style={{ alignItems: "center", transform: [{ scale: revealScale }] }}>
@@ -227,7 +228,7 @@ export default function GamesScreen() {
   const spinsLeft = Math.max(0, SPIN_LIMIT - spinsUsed);
   const scratchLeft = Math.max(0, SCRATCH_LIMIT - scratchesUsed);
 
-  const activeDescription = useMemo(() => activeTab === "spin" ? "Spin the wheel to earn Energy for app benefits." : "Tap to reveal and earn Energy rewards.", [activeTab]);
+  const activeDescription = useMemo(() => activeTab === "spin" ? "Spin the wheel to earn random Energy for app benefits." : "Tap to reveal and earn random Energy rewards.", [activeTab]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -268,7 +269,7 @@ export default function GamesScreen() {
 
         <View style={[styles.infoBox, { borderColor: colors.border, backgroundColor: "rgba(255,255,255,0.04)" }]}>
           <Feather name="zap" size={18} color={colors.gold} />
-          <Text style={[styles.infoText, { color: colors.mutedForeground }]}>Spin and Scratch now earn Energy only. Energy unlocks extra task slots and app benefits. It cannot be withdrawn.</Text>
+          <Text style={[styles.infoText, { color: colors.mutedForeground }]}>Spin and Scratch now earn random Energy only. Energy unlocks extra task slots and app benefits. It cannot be withdrawn.</Text>
         </View>
       </ScrollView>
     </View>
