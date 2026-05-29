@@ -155,14 +155,14 @@ export async function recordDailyEnergy(deviceId: string, energyAwarded: number)
     const tasksToday = user.lastDailyTaskDate === today ? numberValue(user.dailyTasksCompletedToday) : 0;
     const nextEnergy = currentEnergy + energy;
 
+    await maybeAwardReferralBonus(tx, db, userRef, user, tasksToday, nextEnergy);
+
     tx.set(userRef, {
       dailyEnergyEarnedToday: nextEnergy,
       lastDailyEnergyDate: today,
       lifetimeEnergyEarned: admin.firestore.FieldValue.increment(energy),
       updatedAt: nowTs(),
     }, { merge: true });
-
-    await maybeAwardReferralBonus(tx, db, userRef, user, tasksToday, nextEnergy);
   });
 }
 
@@ -184,6 +184,8 @@ export async function recordCompletedTask(deviceId: string) {
     const longestStreak = Math.max(numberValue(user.longestDailyStreak), nextStreak);
     const energyToday = user.lastDailyEnergyDate === today ? numberValue(user.dailyEnergyEarnedToday) : 0;
 
+    await maybeAwardReferralBonus(tx, db, userRef, user, nextTasks, energyToday);
+
     tx.set(userRef, {
       dailyTasksCompletedToday: nextTasks,
       lastDailyTaskDate: today,
@@ -192,8 +194,6 @@ export async function recordCompletedTask(deviceId: string) {
       lifetimeCompletedTasks: admin.firestore.FieldValue.increment(1),
       updatedAt: nowTs(),
     }, { merge: true });
-
-    await maybeAwardReferralBonus(tx, db, userRef, user, nextTasks, energyToday);
   });
 }
 
