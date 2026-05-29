@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { getAppSettings, handleRouteError } from "../services/firebase-admin.js";
 
 const router = Router();
@@ -10,6 +10,29 @@ function sendError(res: import("express").Response, err: unknown, fallback: stri
 
 function truthyEnv(name: string) {
   return Boolean(String(process.env[name] ?? "").trim());
+}
+
+function getPublicBaseUrl(req: Request): string {
+  const explicit = String(process.env["PUBLIC_BASE_URL"] || process.env["APP_PUBLIC_URL"] || "").trim().replace(/\/$/, "");
+  if (explicit) return explicit;
+  const replitDomain = String(process.env["REPLIT_DEV_DOMAIN"] || process.env["REPLIT_DOMAINS"] || process.env["EXPO_PUBLIC_DOMAIN"] || "")
+    .split(",")[0]
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
+  if (replitDomain) return `https://${replitDomain}`;
+  return `${req.protocol}://${req.get("host")}`.replace(/\/$/, "");
+}
+
+function buildProviderCallbackUrls(req: Request) {
+  const base = getPublicBaseUrl(req);
+  return {
+    monlix: `${base}/api/webhooks/monlix`,
+    tapjoy: `${base}/api/webhooks/tapjoy`,
+    ayet: `${base}/api/webhooks/ayet`,
+    pubscale: `${base}/api/webhooks/pubscale`,
+    unity: "Unity rewarded ads are disabled until native SDK server-side verification is implemented.",
+  };
 }
 
 function buildProviderLaunchStatus() {
@@ -43,10 +66,14 @@ function buildProviderLaunchStatus() {
 }
 
 // Public endpoint: returns app settings plus safe launch status (no secrets)
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
     const settings = await getAppSettings();
-    res.json({ ...settings, providerLaunch: buildProviderLaunchStatus() });
+    res.json({
+      ...settings,
+      providerLaunch: buildProviderLaunchStatus(),
+      providerCallbackUrls: buildProviderCallbackUrls(req),
+    });
   } catch (err) {
     sendError(res, err, "Unable to load app settings.");
   }
