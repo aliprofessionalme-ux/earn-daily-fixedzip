@@ -53,7 +53,7 @@ export default function ReferralScreen() {
   const shareReferral = async () => {
     if (!summary) return;
     await Share.share({
-      message: `Join Earn Daily with my referral code ${summary.referralCode}. Bonus unlocks after 5 tasks and 5 Energy. ${referralLink}`,
+      message: `Join Earn Daily with my referral code ${summary.referralCode}. Bonus unlocks after ${summary.requiredTasks} tasks, ${summary.requiredTaskCoins.toLocaleString()} earned task coins and ${summary.requiredEnergy} Energy. ${referralLink}`,
     }).catch(() => {});
   };
 
@@ -138,7 +138,7 @@ export default function ReferralScreen() {
               <Feather name="shield" size={17} color={colors.gold} />
               <Text style={[styles.ruleTitle, { color: colors.foreground }]}>Bonus rule</Text>
             </View>
-            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>The referrer receives the bonus only after the referred user completes {summary.requiredTasks} valid tasks and earns {summary.requiredEnergy} Energy.</Text>
+            <Text style={[styles.ruleText, { color: colors.mutedForeground }]}>The referrer receives the bonus only after the referred user completes {summary.requiredTasks} valid tasks, earns at least {summary.requiredTaskCoins.toLocaleString()} task coins and earns {summary.requiredEnergy} Energy.</Text>
           </View>
 
           <SectionTitle title="Apply referral code" />
@@ -167,7 +167,7 @@ export default function ReferralScreen() {
             <View key={item.maskedUserId} style={[styles.refRow, { backgroundColor: colors.card, borderColor: colors.border }]}> 
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.refName, { color: colors.foreground }]} numberOfLines={1}>{item.displayName}</Text>
-                <Text style={[styles.refMeta, { color: colors.mutedForeground }]}>{item.maskedUserId} - {item.tasksToday}/5 tasks - {item.energyToday}/5 Energy</Text>
+                <Text style={[styles.refMeta, { color: colors.mutedForeground }]}>{item.maskedUserId} - {item.tasksToday}/{summary.requiredTasks} tasks - {item.taskCoinsToday.toLocaleString()}/{summary.requiredTaskCoins.toLocaleString()} coins - {item.energyToday}/{summary.requiredEnergy} Energy</Text>
               </View>
               <View style={[styles.refBadge, { backgroundColor: (item.qualified ? colors.green : colors.gold) + "22" }]}> 
                 <Text style={[styles.refBadgeText, { color: item.qualified ? colors.green : colors.gold }]}>{item.qualified ? "Qualified" : "Pending"}</Text>
