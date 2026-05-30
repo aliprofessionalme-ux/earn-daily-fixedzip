@@ -1,13 +1,14 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { CompactStatCard } from "@/components/CompactStatCard";
 import { SectionTitle } from "@/components/SectionTitle";
+import { getUnlockedBadges, getUserLevel, type BadgeIcon, type BadgeInfo } from "@/utils/badges";
 
 function truncate(value?: string | null) {
   if (!value) return "-";
@@ -31,10 +32,20 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function BadgePill({ badge }: { badge: BadgeInfo }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.badgePill, { backgroundColor: badge.color + "18", borderColor: badge.color + "55" }]}> 
+      <Feather name={badge.icon as BadgeIcon} size={13} color={badge.color} />
+      <Text style={[styles.badgePillText, { color: colors.foreground }]} numberOfLines={1}>{badge.label}</Text>
+    </View>
+  );
+}
+
 function ToolRow({ icon, title, subtitle, onPress }: { icon: React.ComponentProps<typeof Feather>["name"]; title: string; subtitle: string; onPress: () => void }) {
   const colors = useColors();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.toolRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.toolRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}> 
       <View style={[styles.toolIcon, { backgroundColor: colors.gold + "18" }]}> 
         <Feather name={icon} size={18} color={colors.gold} />
       </View>
@@ -68,6 +79,9 @@ export default function ProfileScreen() {
   const tasksToday = user?.lastDailyTaskDate === today ? user?.dailyTasksCompletedToday ?? 0 : 0;
   const energyToday = user?.lastDailyEnergyDate === today ? user?.dailyEnergyEarnedToday ?? 0 : 0;
   const streak = user?.lastDailyTaskDate === today ? user?.currentDailyStreak ?? 0 : 0;
+  const level = useMemo(() => getUserLevel(user), [user]);
+  const badges = useMemo(() => getUnlockedBadges(user, 6), [user]);
+  const levelProgress = Math.round(level.progress * 100);
 
   const saveProfile = async () => {
     const name = displayName.trim().replace(/\s+/g, " ");
@@ -148,6 +162,31 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <SectionTitle title="Level & badges" />
+          <View style={[styles.levelCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={styles.levelTop}>
+              <View style={[styles.levelIcon, { backgroundColor: level.color + "22" }]}> 
+                <Feather name="award" size={22} color={level.color} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.levelName, { color: colors.foreground }]}>{level.name} Level</Text>
+                <Text style={[styles.levelSub, { color: colors.mutedForeground }]}>{level.coins.toLocaleString()} lifetime coins</Text>
+              </View>
+              <Text style={[styles.levelPercent, { color: level.color }]}>{levelProgress}%</Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: colors.background }]}> 
+              <View style={[styles.progressFill, { width: `${levelProgress}%`, backgroundColor: level.color }]} />
+            </View>
+            <Text style={[styles.levelHint, { color: colors.mutedForeground }]}> 
+              {level.nextName ? `${level.coinsToNext.toLocaleString()} coins to ${level.nextName}` : "Highest level unlocked"}
+            </Text>
+            <View style={styles.badgesGrid}>
+              {badges.map((badge) => <BadgePill key={badge.id} badge={badge} />)}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <SectionTitle title="Account status" />
           <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={[styles.avatar, { backgroundColor: (user?.isBanned ? colors.destructive : colors.green) + "20" }]}> 
@@ -210,6 +249,18 @@ const styles = StyleSheet.create({
   progressCard: { flex: 1, borderWidth: 1, borderRadius: 14, padding: 12, alignItems: "center" },
   progressValue: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 23 },
   progressLabel: { fontFamily: "Inter_500Medium", fontSize: 10.5, lineHeight: 14, marginTop: 2, textAlign: "center" },
+  levelCard: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
+  levelTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  levelIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  levelName: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20 },
+  levelSub: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16, marginTop: 2 },
+  levelPercent: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
+  progressTrack: { height: 8, borderRadius: 999, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 999 },
+  levelHint: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15 },
+  badgesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  badgePill: { minHeight: 30, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "48%" },
+  badgePillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15, flexShrink: 1 },
   statusCard: { borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row", gap: 12, alignItems: "center" },
   avatar: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   statusTitle: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20 },
