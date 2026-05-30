@@ -4,10 +4,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "@/hooks/useColors";
-import { useUser } from "@/contexts/UserContext";
-import { applyReferralCode, getReferralSummary, type ReferralSummary } from "@/services/api";
+import { ReferralCodeScanner } from "@/components/ReferralCodeScanner";
 import { SectionTitle } from "@/components/SectionTitle";
+import { useUser } from "@/contexts/UserContext";
+import { useColors } from "@/hooks/useColors";
+import { applyReferralCode, getReferralSummary, type ReferralSummary } from "@/services/api";
+import { extractReferralCode, normalizeReferralCode } from "@/utils/referralCode";
 
 export default function ReferralScreen() {
   const colors = useColors();
@@ -19,12 +21,13 @@ export default function ReferralScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     const scannedCode = Array.isArray(params.code) ? params.code[0] : params.code;
-    if (scannedCode) setCodeInput(String(scannedCode).trim().toUpperCase());
+    if (scannedCode) setCodeInput(extractReferralCode(String(scannedCode)));
   }, [params.code]);
 
   const referralLink = useMemo(() => {
@@ -54,12 +57,18 @@ export default function ReferralScreen() {
     }).catch(() => {});
   };
 
+  const handleScannedCode = (code: string) => {
+    setCodeInput(code);
+    setNotice({ text: "Referral QR scanned. Tap Apply to link it.", ok: true });
+  };
+
   const submitReferral = async () => {
     if (!deviceId) return;
-    if (codeInput.trim().length < 4) { setNotice({ text: "Enter a valid referral code.", ok: false }); return; }
+    const normalizedCode = normalizeReferralCode(codeInput);
+    if (normalizedCode.length < 4) { setNotice({ text: "Enter a valid referral code.", ok: false }); return; }
     setApplying(true); setNotice(null);
     try {
-      const result = await applyReferralCode(deviceId, codeInput.trim());
+      const result = await applyReferralCode(deviceId, normalizedCode);
       setCodeInput("");
       setNotice({ text: result.message, ok: true });
       await refreshUser();
@@ -96,7 +105,7 @@ export default function ReferralScreen() {
           <Pressable onPress={load} style={[styles.retry, { backgroundColor: colors.primary }]}><Text style={styles.retryText}>Retry</Text></Pressable>
         </View>
       ) : summary ? (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === "web" ? 34 : 112 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === "web" ? 34 : 112 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={[styles.qrCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={[styles.qrBox, { backgroundColor: "#fff" }]}> 
               {qrUrl ? <Image source={{ uri: qrUrl }} style={styles.qrImage} /> : null}
@@ -134,11 +143,17 @@ export default function ReferralScreen() {
 
           <SectionTitle title="Apply referral code" />
           <View style={[styles.applyCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <TextInput value={codeInput} onChangeText={setCodeInput} autoCapitalize="characters" placeholder="Enter referral code" placeholderTextColor={colors.mutedForeground} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} />
-            <Pressable disabled={applying} onPress={submitReferral} style={[styles.applyBtn, { backgroundColor: colors.primary, opacity: applying ? 0.7 : 1 }]}> 
-              {applying ? <ActivityIndicator color="#fff" /> : <Feather name="check" size={18} color="#fff" />}
-              <Text style={styles.applyText}>Apply</Text>
-            </Pressable>
+            <TextInput value={codeInput} onChangeText={(value) => setCodeInput(value.toUpperCase())} autoCapitalize="characters" placeholder="Enter referral code" placeholderTextColor={colors.mutedForeground} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} />
+            <View style={styles.applyActions}>
+              <Pressable onPress={() => setScannerOpen(true)} style={[styles.scanBtn, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "66" }]}> 
+                <Feather name="camera" size={18} color={colors.gold} />
+                <Text style={[styles.scanText, { color: colors.gold }]}>Scan QR</Text>
+              </Pressable>
+              <Pressable disabled={applying} onPress={submitReferral} style={[styles.applyBtn, { backgroundColor: colors.primary, opacity: applying ? 0.7 : 1 }]}> 
+                {applying ? <ActivityIndicator color="#fff" /> : <Feather name="check" size={18} color="#fff" />}
+                <Text style={styles.applyText}>Apply</Text>
+              </Pressable>
+            </View>
             {notice ? <Text style={[styles.notice, { color: notice.ok ? colors.green : colors.destructive }]}>{notice.text}</Text> : null}
           </View>
 
@@ -161,6 +176,8 @@ export default function ReferralScreen() {
           ))}
         </ScrollView>
       ) : null}
+
+      <ReferralCodeScanner visible={scannerOpen} onClose={() => setScannerOpen(false)} onCode={handleScannedCode} />
     </View>
   );
 }
@@ -192,7 +209,10 @@ const styles = StyleSheet.create({
   ruleText: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18 },
   applyCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 8, marginBottom: 14 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
-  applyBtn: { minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  applyActions: { flexDirection: "row", gap: 8 },
+  scanBtn: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  scanText: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
+  applyBtn: { flex: 1, minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   applyText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
   notice: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, textAlign: "center" },
   emptyList: { borderWidth: 1, borderRadius: 16, padding: 20, alignItems: "center", gap: 8 },
