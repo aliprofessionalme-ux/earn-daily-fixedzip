@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, Vie
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { getLeaderboard, type LeaderboardUser } from "@/services/api";
+import { getUnlockedBadges, getUserLevel, type BadgeIcon } from "@/utils/badges";
 
 function medal(rank: number) {
   if (rank === 1) return "#FACC15";
@@ -64,21 +65,49 @@ export default function LeaderboardScreen() {
           keyExtractor={(item) => `${item.rank}-${item.maskedUserId}`}
           contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === "web" ? 34 : 112 }}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={[styles.row, { backgroundColor: colors.card, borderColor: item.rank <= 3 ? medal(item.rank) : colors.border }]}> 
-              <View style={[styles.rank, { backgroundColor: medal(item.rank) }]}> 
-                <Text style={[styles.rankText, { color: item.rank <= 3 ? "#111827" : colors.foreground }]}>{item.rank}</Text>
+          renderItem={({ item }) => {
+            const level = getUserLevel({
+              confirmedCoinsBalance: item.confirmedCoinsBalance,
+              pendingCoinsBalance: item.pendingCoinsBalance,
+              currentDailyStreak: item.currentDailyStreak,
+              dailyTasksCompletedToday: item.dailyTasksCompletedToday,
+            });
+            const primaryBadge = getUnlockedBadges({
+              rank: item.rank,
+              confirmedCoinsBalance: item.confirmedCoinsBalance,
+              pendingCoinsBalance: item.pendingCoinsBalance,
+              currentDailyStreak: item.currentDailyStreak,
+              dailyTasksCompletedToday: item.dailyTasksCompletedToday,
+            }, 2)[0];
+
+            return (
+              <View style={[styles.row, { backgroundColor: colors.card, borderColor: item.rank <= 3 ? medal(item.rank) : colors.border }]}> 
+                <View style={[styles.rank, { backgroundColor: medal(item.rank) }]}> 
+                  <Text style={[styles.rankText, { color: item.rank <= 3 ? "#111827" : colors.foreground }]}>{item.rank}</Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>{item.displayName}</Text>
+                  <Text style={[styles.masked, { color: colors.mutedForeground }]} numberOfLines={1}>{item.maskedUserId}</Text>
+                  <View style={styles.badgeRow}>
+                    <View style={[styles.levelPill, { backgroundColor: level.color + "1F", borderColor: level.color + "66" }]}> 
+                      <Feather name="award" size={11} color={level.color} />
+                      <Text style={[styles.levelPillText, { color: level.color }]}>{level.name}</Text>
+                    </View>
+                    {primaryBadge ? (
+                      <View style={[styles.levelPill, { backgroundColor: primaryBadge.color + "18", borderColor: primaryBadge.color + "55" }]}> 
+                        <Feather name={primaryBadge.icon as BadgeIcon} size={11} color={primaryBadge.color} />
+                        <Text style={[styles.levelPillText, { color: primaryBadge.color }]} numberOfLines={1}>{primaryBadge.label}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+                <View style={styles.right}>
+                  <Text style={[styles.coins, { color: colors.gold }]}>{item.confirmedCoinsBalance.toLocaleString()}</Text>
+                  <Text style={[styles.meta, { color: colors.mutedForeground }]}>{item.currentDailyStreak} streak</Text>
+                </View>
               </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>{item.displayName}</Text>
-                <Text style={[styles.masked, { color: colors.mutedForeground }]} numberOfLines={1}>{item.maskedUserId}</Text>
-              </View>
-              <View style={styles.right}>
-                <Text style={[styles.coins, { color: colors.gold }]}>{item.confirmedCoinsBalance.toLocaleString()}</Text>
-                <Text style={[styles.meta, { color: colors.mutedForeground }]}>{item.currentDailyStreak} streak</Text>
-              </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </View>
@@ -100,6 +129,9 @@ const styles = StyleSheet.create({
   rankText: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   name: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   masked: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 2 },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 7 },
+  levelPill: { minHeight: 23, maxWidth: 105, borderWidth: 1, borderRadius: 999, paddingHorizontal: 7, flexDirection: "row", alignItems: "center", gap: 4 },
+  levelPillText: { fontFamily: "Inter_700Bold", fontSize: 9.5, lineHeight: 13, flexShrink: 1 },
   right: { alignItems: "flex-end" },
   coins: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   meta: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginTop: 2 },
