@@ -67,6 +67,7 @@ export interface UserDocument {
   authMode: "firebase-anonymous" | "device-only";
   authVerified: boolean;
   displayName?: string | null;
+  phone?: string | null;
   referralCode?: string | null;
   referredByDeviceId?: string | null;
   referralBonusAwarded?: boolean;
@@ -356,7 +357,7 @@ export async function getUser(deviceId: string): Promise<UserDocument> {
   return apiFetch<UserDocument>(`/users/${encodeURIComponent(deviceId)}`);
 }
 
-export async function updateUserProfile(deviceId: string, payload: { displayName: string }): Promise<{ success: boolean; user: UserDocument | null }> {
+export async function updateUserProfile(deviceId: string, payload: { displayName: string; phone?: string | null }): Promise<{ success: boolean; user: UserDocument | null }> {
   return apiFetch(`/users/${encodeURIComponent(deviceId)}/profile`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
