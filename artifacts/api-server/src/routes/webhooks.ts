@@ -232,7 +232,8 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
       status: "completed",
     });
     if (result.success && !result.duplicate) {
-      await recordCompletedTask(parsed.deviceId);
+      const coinsCalculated = Number((result as { coinsCalculated?: number }).coinsCalculated ?? 0);
+      await recordCompletedTask(parsed.deviceId, coinsCalculated);
     }
     res.json(result);
   } catch (err) {
