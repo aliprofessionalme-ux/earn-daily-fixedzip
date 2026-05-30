@@ -77,7 +77,7 @@ export function ReferralCodeScanner({ visible, title = "Scan referral QR", onClo
               />
             )}
 
-            <View pointerEvents="none" style={[styles.scanBox, { borderColor: colors.gold }]} />
+            {permission?.granted ? <View pointerEvents="none" style={[styles.scanBox, { borderColor: colors.gold }]} /> : null}
           </View>
 
           <Text style={[styles.footerText, { color: colors.mutedForeground }]}> 
