@@ -38,7 +38,8 @@ function RootStack() {
 }
 
 function AppGate() {
-  const { isLoading, error, retryInit, onboardingComplete, completeOnboarding } = useUser();
+  const { isLoading, error, retryInit, onboardingComplete, completeOnboarding, user } = useUser();
+  const hasRequiredProfile = Boolean(user?.displayName?.trim() && user.displayName.trim().length >= 2);
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
@@ -46,7 +47,7 @@ function AppGate() {
 
   if (isLoading) return <AppSplash />;
   if (error) return <AppSplash error={error} onRetry={retryInit} />;
-  if (!onboardingComplete) return <Onboarding onDone={() => void completeOnboarding()} />;
+  if (!onboardingComplete || !hasRequiredProfile) return <Onboarding onDone={() => void completeOnboarding()} />;
   return <RootStack />;
 }
 
