@@ -19,6 +19,19 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { getAppSettings, type ProviderLaunchStatus } from "@/services/api";
 
 type ProviderKey = "game_tasks" | "high_reward_offers";
+type OfferFilter = "all" | "open" | "fast" | "high" | "games" | "surveys" | "apps" | "energy" | "new";
+
+const OFFER_FILTERS: Array<{ id: OfferFilter; label: string; icon: React.ComponentProps<typeof Feather>["name"] }> = [
+  { id: "all", label: "All", icon: "grid" },
+  { id: "open", label: "Open", icon: "unlock" },
+  { id: "fast", label: "Fast", icon: "zap" },
+  { id: "high", label: "High Reward", icon: "award" },
+  { id: "games", label: "Games", icon: "play" },
+  { id: "surveys", label: "Surveys", icon: "message-square" },
+  { id: "apps", label: "Apps", icon: "download" },
+  { id: "energy", label: "Energy", icon: "battery-charging" },
+  { id: "new", label: "New", icon: "sparkles" },
+];
 
 interface EarningCategory {
   id: ProviderKey | "survey_rewards" | "app_install_tasks" | "partner_tasks" | "watch_ads";
@@ -30,11 +43,16 @@ interface EarningCategory {
   provider?: ProviderKey;
   publicAppId?: string;
   gradient: [string, string];
+  filters: OfferFilter[];
 }
 
 function monlixUrl(publicAppId: string | undefined, deviceId: string): string | null {
   if (!publicAppId || !deviceId) return null;
   return `https://offers.monlix.com/?app=${encodeURIComponent(publicAppId)}&user=${encodeURIComponent(deviceId)}`;
+}
+
+function openTag(enabled: boolean): OfferFilter[] {
+  return enabled ? ["open"] : [];
 }
 
 function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCategory[] {
@@ -53,6 +71,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       provider: gameReady ? "game_tasks" : undefined,
       publicAppId: providerLaunch?.gameTasks?.publicAppId,
       gradient: ["#7C3AED", "#4C1D95"],
+      filters: ["all", "fast", "games", "new", ...openTag(gameReady)],
     },
     {
       id: "survey_rewards",
@@ -62,6 +81,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       rewardType: "pending_coins",
       status: "coming_soon",
       gradient: ["#059669", "#047857"],
+      filters: ["all", "surveys"],
     },
     {
       id: "app_install_tasks",
@@ -71,6 +91,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       rewardType: "pending_coins",
       status: "coming_soon",
       gradient: ["#D97706", "#B45309"],
+      filters: ["all", "apps", "new"],
     },
     {
       id: "high_reward_offers",
@@ -82,6 +103,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       provider: highRewardReady ? "high_reward_offers" : undefined,
       publicAppId: providerLaunch?.highRewardOffers?.publicAppId,
       gradient: ["#DC2626", "#991B1B"],
+      filters: ["all", "high", "new", ...openTag(highRewardReady)],
     },
     {
       id: "partner_tasks",
@@ -91,6 +113,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       rewardType: "pending_coins",
       status: "coming_soon",
       gradient: ["#2563EB", "#1E40AF"],
+      filters: ["all", "fast"],
     },
     {
       id: "watch_ads",
@@ -100,6 +123,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       rewardType: "energy",
       status: "coming_soon",
       gradient: ["#0891B2", "#0E7490"],
+      filters: ["all", "energy", "fast"],
     },
   ];
 }
@@ -112,6 +136,7 @@ export default function OfferwallScreen() {
   const [webviewLoading, setWebviewLoading] = useState(true);
   const [webviewError, setWebviewError] = useState(false);
   const [providerLaunch, setProviderLaunch] = useState<ProviderLaunchStatus | null>(null);
+  const [activeFilter, setActiveFilter] = useState<OfferFilter>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +151,10 @@ export default function OfferwallScreen() {
   }, []);
 
   const categories = useMemo(() => getCategories(providerLaunch), [providerLaunch]);
+  const visibleCategories = useMemo(
+    () => categories.filter((cat) => activeFilter === "all" || cat.filters.includes(activeFilter)),
+    [activeFilter, categories],
+  );
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
   const openOfferwall = (category: EarningCategory) => {
@@ -206,8 +235,25 @@ export default function OfferwallScreen() {
           <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Tasks earn Pending Coins. Verified rewards become Confirmed Coins later.</Text>
         </View>
 
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {OFFER_FILTERS.map((filter) => {
+            const active = activeFilter === filter.id;
+            return (
+              <Pressable key={filter.id} onPress={() => setActiveFilter(filter.id)} style={[styles.filterChip, { backgroundColor: active ? colors.gold : colors.card, borderColor: active ? colors.gold : colors.border }]}> 
+                <Feather name={filter.icon} size={13} color={active ? "#120900" : colors.mutedForeground} />
+                <Text style={[styles.filterText, { color: active ? "#120900" : colors.mutedForeground }]}>{filter.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
         <View style={styles.cardsContainer}>
-          {categories.map((cat) => (
+          {visibleCategories.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+              <Feather name="filter" size={32} color={colors.mutedForeground} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No tasks in this filter yet</Text>
+            </View>
+          ) : visibleCategories.map((cat) => (
             <Pressable
               key={cat.id}
               onPress={() => openOfferwall(cat)}
@@ -254,6 +300,9 @@ const styles = StyleSheet.create({
   webHeader: { paddingHorizontal: 16, paddingBottom: 8, borderBottomWidth: 1 },
   headerTitle: { fontFamily: "Inter_700Bold", fontSize: 19, lineHeight: 24 },
   headerSubtitle: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  filterRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  filterChip: { minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  filterText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
   cardsContainer: { paddingHorizontal: 16, gap: 10 },
   card: { borderRadius: 15, borderWidth: 1, padding: 12, gap: 9 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
@@ -266,6 +315,8 @@ const styles = StyleSheet.create({
   badgeText: { fontFamily: "Inter_600SemiBold", fontSize: 10.5, lineHeight: 14, color: "#fff" },
   statusBadge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontFamily: "Inter_600SemiBold", fontSize: 10.5, lineHeight: 14 },
+  emptyCard: { minHeight: 120, borderWidth: 1, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 8, padding: 18 },
+  emptyText: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, textAlign: "center" },
   infoCard: { marginHorizontal: 16, marginTop: 12, borderRadius: 14, borderWidth: 1, padding: 12 },
   infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 9 },
   infoText: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, flex: 1 },
