@@ -74,6 +74,7 @@ export interface UserDocument {
   referralBonusCoinsEarned?: number;
   referredByCode?: string | null;
   dailyTasksCompletedToday?: number;
+  dailyTaskCoinsEarnedToday?: number;
   lastDailyTaskDate?: string | null;
   currentDailyStreak?: number;
   longestDailyStreak?: number;
@@ -158,6 +159,7 @@ export interface ReferralSummary {
   referralUrl: string;
   bonusCoins: number;
   requiredTasks: number;
+  requiredTaskCoins: number;
   requiredEnergy: number;
   totalReferred: number;
   qualifiedReferrals: number;
@@ -167,6 +169,7 @@ export interface ReferralSummary {
     displayName: string;
     qualified: boolean;
     tasksToday: number;
+    taskCoinsToday: number;
     energyToday: number;
     joinedAt?: string | null;
   }>;
