@@ -19,6 +19,15 @@ function normalizeReferralCode(value: string): string {
   return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
+function normalizeOptionalPhone(value: string | null | undefined): string | null {
+  const phone = String(value ?? "").trim().replace(/\s+/g, " ");
+  if (!phone) return null;
+  if (phone.length < 6 || phone.length > 30 || !/^[0-9+()\-\s]+$/.test(phone)) {
+    throw new HttpError(400, "Enter a valid phone number or leave it empty.", "invalid_phone");
+  }
+  return phone;
+}
+
 function numberValue(value: unknown): number {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
@@ -49,8 +58,8 @@ export async function ensureReferralCode(deviceId: string): Promise<string> {
   return code;
 }
 
-export async function updateDisplayName(deviceId: string, displayName: string) {
-  const name = displayName.trim().replace(/\s+/g, " ");
+export async function updateUserProfile(deviceId: string, profile: { displayName: string; phone?: string | null }) {
+  const name = profile.displayName.trim().replace(/\s+/g, " ");
   if (name.length < 2 || name.length > 40) {
     throw new HttpError(400, "Name must be 2 to 40 characters.", "invalid_display_name");
   }
@@ -58,8 +67,18 @@ export async function updateDisplayName(deviceId: string, displayName: string) {
   const userRef = db.collection("users").doc(deviceId);
   const snap = await userRef.get();
   if (!snap.exists) throw new HttpError(404, "User not found.", "user_not_found");
-  await userRef.set({ displayName: name, updatedAt: nowTs() }, { merge: true });
-  return { success: true, displayName: name };
+
+  const update: Record<string, unknown> = { displayName: name, updatedAt: nowTs() };
+  if (Object.prototype.hasOwnProperty.call(profile, "phone")) {
+    update.phone = normalizeOptionalPhone(profile.phone);
+  }
+
+  await userRef.set(update, { merge: true });
+  return { success: true, displayName: name, phone: update.phone ?? undefined };
+}
+
+export async function updateDisplayName(deviceId: string, displayName: string) {
+  return updateUserProfile(deviceId, { displayName });
 }
 
 export async function applyReferralCode(deviceId: string, referralCode: string) {
