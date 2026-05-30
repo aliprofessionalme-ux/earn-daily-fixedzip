@@ -20,7 +20,7 @@ import {
   getLeaderboard,
   getReferralSummary,
   recordDailyEnergy,
-  updateDisplayName,
+  updateUserProfile,
 } from "../services/progress.js";
 
 const router = Router();
@@ -43,6 +43,7 @@ const supportSchema = z.object({
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(40),
+  phone: z.string().trim().max(30).optional().nullable(),
 });
 
 const referralApplySchema = z.object({
@@ -116,13 +117,16 @@ router.get("/:deviceId", requireFirebaseAuth, async (req, res) => {
 router.patch("/:deviceId/profile", requireFirebaseAuth, async (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Name must be 2 to 40 characters.", code: "invalid_display_name" });
+    res.status(400).json({ error: "Name must be 2 to 40 characters. Phone is optional.", code: "invalid_profile" });
     return;
   }
 
   try {
     const deviceId = String(req.params.deviceId);
-    await updateDisplayName(deviceId, parsed.data.displayName);
+    const profileUpdate = Object.prototype.hasOwnProperty.call(req.body ?? {}, "phone")
+      ? { displayName: parsed.data.displayName, phone: parsed.data.phone ?? null }
+      : { displayName: parsed.data.displayName };
+    await updateUserProfile(deviceId, profileUpdate);
     const user = await getUserDoc(deviceId);
     res.json({ success: true, user: user ? serializeUser(user) : null });
   } catch (err) {
