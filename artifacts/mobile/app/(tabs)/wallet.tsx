@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -23,6 +23,16 @@ import { CompactStatCard } from "@/components/CompactStatCard";
 const PAYMENT_METHODS = ["Easypaisa", "JazzCash"] as const;
 const FALLBACK_MIN_WITHDRAWAL_PKR = 500;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+type WithdrawalFilter = "all" | WithdrawalDocument["status"];
+
+const HISTORY_FILTERS: Array<{ id: WithdrawalFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
+  { id: "review", label: "Review" },
+  { id: "approved", label: "Approved" },
+  { id: "paid", label: "Paid" },
+  { id: "rejected", label: "Rejected" },
+];
 
 function formatPKR(n: number) {
   return "PKR " + Number(n || 0).toFixed(2);
@@ -59,6 +69,58 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function timelineActiveIndex(status: WithdrawalDocument["status"]) {
+  if (status === "approved") return 2;
+  if (status === "paid") return 3;
+  if (status === "rejected") return 2;
+  return 1;
+}
+
+function WithdrawalTimeline({ item }: { item: WithdrawalDocument }) {
+  const colors = useColors();
+  const rejected = item.status === "rejected";
+  const steps = rejected
+    ? [
+        { key: "requested", label: "Requested", date: item.createdAt, icon: "send" as const },
+        { key: "review", label: "Review", date: item.processedAt, icon: "eye" as const },
+        { key: "rejected", label: "Rejected", date: item.processedAt ?? item.updatedAt, icon: "x-circle" as const },
+      ]
+    : [
+        { key: "requested", label: "Requested", date: item.createdAt, icon: "send" as const },
+        { key: "review", label: "Review", date: item.status === "pending" || item.status === "review" ? item.updatedAt : item.processedAt, icon: "eye" as const },
+        { key: "approved", label: "Approved", date: item.processedAt, icon: "check-circle" as const },
+        { key: "paid", label: "Paid", date: item.paidAt, icon: "credit-card" as const },
+      ];
+  const activeIndex = timelineActiveIndex(item.status);
+
+  return (
+    <View style={styles.timeline}> 
+      {steps.map((step, index) => {
+        const done = index < activeIndex;
+        const current = index === activeIndex;
+        const waiting = index > activeIndex;
+        const palette = step.key === "rejected" ? colors.destructive : done ? colors.green : current ? colors.gold : colors.mutedForeground;
+        return (
+          <View key={step.key} style={styles.timelineItem}> 
+            <View style={styles.timelineRail}> 
+              <View style={[styles.timelineDot, { backgroundColor: palette + (waiting ? "22" : "33"), borderColor: palette }]}> 
+                <Feather name={step.icon} size={12} color={palette} />
+              </View>
+              {index < steps.length - 1 ? <View style={[styles.timelineLine, { backgroundColor: done ? colors.green + "66" : colors.border }]} /> : null}
+            </View>
+            <View style={styles.timelineTextWrap}>
+              <Text style={[styles.timelineLabel, { color: current ? palette : colors.foreground }]}>{step.label}</Text>
+              <Text style={[styles.timelineDate, { color: colors.mutedForeground }]}> 
+                {step.date ? formatDate(step.date) : current ? "Now" : "Next"}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function WalletScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -72,6 +134,7 @@ export default function WalletScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [history, setHistory] = useState<WithdrawalDocument[]>([]);
+  const [historyFilter, setHistoryFilter] = useState<WithdrawalFilter>("all");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [minWithdrawal, setMinWithdrawal] = useState<number>(0);
@@ -86,6 +149,10 @@ export default function WalletScreen() {
   const tasksToday = user?.lastDailyTaskDate === today ? user?.dailyTasksCompletedToday ?? 0 : 0;
   const streakActive = user?.lastDailyTaskDate === today && (user?.currentDailyStreak ?? 0) >= 1;
   const withdrawalReady = streakActive && tasksToday >= 5;
+  const filteredHistory = useMemo(
+    () => historyFilter === "all" ? history : history.filter((item) => item.status === historyFilter),
+    [history, historyFilter],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -238,28 +305,49 @@ export default function WalletScreen() {
           ) : history.length === 0 ? (
             <View style={styles.center}><Feather name="inbox" size={48} color={colors.mutedForeground} /><Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No withdrawals yet</Text></View>
           ) : (
-            <FlatList
-              data={history}
-              keyExtractor={(item) => item.withdrawalId}
-              contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === "web" ? 34 : 112 }}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <View style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-                  <View style={styles.historyLeft}>
-                    <Text style={[styles.historyMethod, { color: colors.foreground }]}>{item.paymentMethod}</Text>
-                    <Text style={[styles.historyAccount, { color: colors.mutedForeground }]}>{item.accountNumber} - {item.accountTitle}</Text>
-                    <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>Requested: {formatDate(item.createdAt)}</Text>
-                    {item.processedAt ? <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>Updated: {formatDate(item.processedAt)}</Text> : null}
-                    {item.rejectionReason ? <Text style={[styles.reason, { color: colors.destructive }]}>Reason: {item.rejectionReason}</Text> : null}
-                    {item.adminNote ? <Text style={[styles.reason, { color: colors.gold }]}>Admin note: {item.adminNote}</Text> : null}
-                  </View>
-                  <View style={styles.historyRight}>
-                    <Text style={[styles.historyAmount, { color: colors.green }]}>{formatPKR(item.amountPKR)}</Text>
-                    <StatusBadge status={item.status} />
-                  </View>
-                </View>
+            <>
+              <View style={styles.historyFilterWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.historyFilterRow}>
+                  {HISTORY_FILTERS.map((filter) => {
+                    const active = historyFilter === filter.id;
+                    return (
+                      <Pressable key={filter.id} onPress={() => setHistoryFilter(filter.id)} style={[styles.historyFilterChip, { backgroundColor: active ? colors.gold : colors.card, borderColor: active ? colors.gold : colors.border }]}> 
+                        <Text style={[styles.historyFilterText, { color: active ? "#120900" : colors.mutedForeground }]}>{filter.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+              {filteredHistory.length === 0 ? (
+                <View style={styles.center}><Feather name="filter" size={42} color={colors.mutedForeground} /><Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No withdrawals in this filter</Text></View>
+              ) : (
+                <FlatList
+                  data={filteredHistory}
+                  keyExtractor={(item) => item.withdrawalId}
+                  contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: Platform.OS === "web" ? 34 : 112 }}
+                  showsVerticalScrollIndicator={false}
+                  renderItem={({ item }) => (
+                    <View style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+                      <View style={styles.historyTop}>
+                        <View style={styles.historyLeft}>
+                          <Text style={[styles.historyMethod, { color: colors.foreground }]}>{item.paymentMethod}</Text>
+                          <Text style={[styles.historyAccount, { color: colors.mutedForeground }]}>{item.accountNumber} - {item.accountTitle}</Text>
+                          <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>Requested: {formatDate(item.createdAt)}</Text>
+                          {item.processedAt ? <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>Updated: {formatDate(item.processedAt)}</Text> : null}
+                          {item.rejectionReason ? <Text style={[styles.reason, { color: colors.destructive }]}>Reason: {item.rejectionReason}</Text> : null}
+                          {item.adminNote ? <Text style={[styles.reason, { color: colors.gold }]}>Admin note: {item.adminNote}</Text> : null}
+                        </View>
+                        <View style={styles.historyRight}>
+                          <Text style={[styles.historyAmount, { color: colors.green }]}>{formatPKR(item.amountPKR)}</Text>
+                          <StatusBadge status={item.status} />
+                        </View>
+                      </View>
+                      <WithdrawalTimeline item={item} />
+                    </View>
+                  )}
+                />
               )}
-            />
+            </>
           )}
         </View>
       )}
@@ -297,8 +385,13 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: "Inter_500Medium", fontSize: 14, lineHeight: 18, textAlign: "center" },
   retrySmall: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
   retrySmallText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
-  historyItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 10, gap: 10 },
-  historyLeft: { flex: 1, gap: 2 },
+  historyFilterWrap: { paddingTop: 12 },
+  historyFilterRow: { paddingHorizontal: 16, gap: 8 },
+  historyFilterChip: { minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  historyFilterText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
+  historyItem: { padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 10, gap: 12 },
+  historyTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
+  historyLeft: { flex: 1, gap: 2, minWidth: 0 },
   historyRight: { alignItems: "flex-end", gap: 6 },
   historyMethod: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   historyAccount: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16 },
@@ -307,4 +400,12 @@ const styles = StyleSheet.create({
   historyAmount: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   badgeText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
+  timeline: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.10)", paddingTop: 10, gap: 0 },
+  timelineItem: { flexDirection: "row", minHeight: 42 },
+  timelineRail: { width: 30, alignItems: "center" },
+  timelineDot: { width: 25, height: 25, borderRadius: 13, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  timelineLine: { width: 2, flex: 1, marginTop: 2, marginBottom: 2 },
+  timelineTextWrap: { flex: 1, paddingBottom: 10 },
+  timelineLabel: { fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 16 },
+  timelineDate: { fontFamily: "Inter_400Regular", fontSize: 10.5, lineHeight: 14, marginTop: 1 },
 });
