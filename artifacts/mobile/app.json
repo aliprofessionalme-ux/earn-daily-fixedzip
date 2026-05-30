@@ -32,6 +32,12 @@
       ],
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Earn Daily to scan referral QR codes."
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {
