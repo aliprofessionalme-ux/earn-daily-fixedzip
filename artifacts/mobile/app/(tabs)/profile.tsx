@@ -35,7 +35,7 @@ function ToolRow({ icon, title, subtitle, onPress }: { icon: React.ComponentProp
   const colors = useColors();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.toolRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}>
-      <View style={[styles.toolIcon, { backgroundColor: colors.gold + "18" }]}>
+      <View style={[styles.toolIcon, { backgroundColor: colors.gold + "18" }]}> 
         <Feather name={icon} size={18} color={colors.gold} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -53,10 +53,12 @@ export default function ProfileScreen() {
   const { user, deviceId, installId, firebaseUid, authMode, authVerified, refreshUser, updateProfile } = useUser();
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
   const [savingName, setSavingName] = useState(false);
   const [nameNotice, setNameNotice] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => { setDisplayName(user?.displayName ?? ""); }, [user?.displayName]);
+  useEffect(() => { setPhone(user?.phone ?? ""); }, [user?.phone]);
 
   const energy = user?.energyBalance ?? 0;
   const pending = user?.pendingCoinsBalance ?? 0;
@@ -67,15 +69,16 @@ export default function ProfileScreen() {
   const energyToday = user?.lastDailyEnergyDate === today ? user?.dailyEnergyEarnedToday ?? 0 : 0;
   const streak = user?.lastDailyTaskDate === today ? user?.currentDailyStreak ?? 0 : 0;
 
-  const saveName = async () => {
-    const name = displayName.trim();
+  const saveProfile = async () => {
+    const name = displayName.trim().replace(/\s+/g, " ");
+    const phoneValue = phone.trim().replace(/\s+/g, " ");
     if (name.length < 2) { setNameNotice({ text: "Enter at least 2 characters.", ok: false }); return; }
     setSavingName(true); setNameNotice(null);
     try {
-      await updateProfile(name);
-      setNameNotice({ text: "Name updated.", ok: true });
+      await updateProfile(name, phoneValue || null);
+      setNameNotice({ text: "Profile updated.", ok: true });
     } catch (err) {
-      setNameNotice({ text: err instanceof Error ? err.message : "Unable to update name.", ok: false });
+      setNameNotice({ text: err instanceof Error ? err.message : "Unable to update profile.", ok: false });
     } finally {
       setSavingName(false);
     }
@@ -84,7 +87,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <LinearGradient colors={["#1A0A3A", "#0D0D1A"]} style={StyleSheet.absoluteFillObject} />
-      <ScrollView contentContainerStyle={{ paddingTop: topPad + 14, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingTop: topPad + 14, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>Profile</Text>
@@ -102,7 +105,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionTitle title="Your name" />
+          <SectionTitle title="Your details" />
           <View style={[styles.nameCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <TextInput
               value={displayName}
@@ -112,7 +115,16 @@ export default function ProfileScreen() {
               maxLength={40}
               style={[styles.nameInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
             />
-            <Pressable disabled={savingName} onPress={saveName} style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}> 
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="Phone number (optional)"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={30}
+              style={[styles.nameInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+            />
+            <Pressable disabled={savingName} onPress={saveProfile} style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}> 
               {savingName ? <ActivityIndicator color="#fff" /> : <Feather name="save" size={17} color="#fff" />}
               <Text style={styles.saveText}>Save</Text>
             </Pressable>
@@ -157,6 +169,7 @@ export default function ProfileScreen() {
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <InfoRow label="Device ID" value={truncate(deviceId)} />
             <InfoRow label="Referral code" value={user?.referralCode ?? "Open Referral to create"} />
+            <InfoRow label="Phone" value={user?.phone || "Not added"} />
             <InfoRow label="Install ID" value={truncate(installId)} />
             <InfoRow label="Firebase UID" value={truncate(firebaseUid ?? user?.firebaseUid)} />
             <InfoRow label="Auth mode" value={authMode} />
