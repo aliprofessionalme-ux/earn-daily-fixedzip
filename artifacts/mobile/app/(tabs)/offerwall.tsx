@@ -30,7 +30,7 @@ const OFFER_FILTERS: Array<{ id: OfferFilter; label: string; icon: React.Compone
   { id: "surveys", label: "Surveys", icon: "message-square" },
   { id: "apps", label: "Apps", icon: "download" },
   { id: "energy", label: "Energy", icon: "battery-charging" },
-  { id: "new", label: "New", icon: "sparkles" },
+  { id: "new", label: "New", icon: "star" },
 ];
 
 interface EarningCategory {
