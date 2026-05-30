@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import { getFirestoreDb, getTodayString, HttpError, nowTs } from "./firebase-admin.js";
 
 export const REQUIRED_DAILY_TASKS = 5;
+export const REQUIRED_REFERRAL_TASK_COINS = 1500;
 export const REQUIRED_REFERRAL_ENERGY = 5;
 export const REFERRAL_BONUS_COINS = Number(process.env["REFERRAL_BONUS_COINS"] ?? 500);
 
@@ -105,7 +106,7 @@ export async function applyReferralCode(deviceId: string, referralCode: string) 
     updatedAt: nowTs(),
   }, { merge: true });
 
-  return { success: true, message: "Referral linked. Bonus unlocks after 5 tasks and 5 Energy earned by the referred user." };
+  return { success: true, message: `Referral linked. Bonus unlocks after ${REQUIRED_DAILY_TASKS} tasks, ${REQUIRED_REFERRAL_TASK_COINS} task coins and ${REQUIRED_REFERRAL_ENERGY} Energy by the referred user.` };
 }
 
 async function maybeAwardReferralBonus(
@@ -115,9 +116,12 @@ async function maybeAwardReferralBonus(
   referredUser: admin.firestore.DocumentData,
   tasksToday: number,
   energyToday: number,
+  taskCoinsToday: number,
 ) {
   if (!referredUser.referredByDeviceId || referredUser.referralBonusAwarded) return;
-  if (tasksToday < REQUIRED_DAILY_TASKS || energyToday < REQUIRED_REFERRAL_ENERGY) return;
+  if (tasksToday < REQUIRED_DAILY_TASKS) return;
+  if (taskCoinsToday < REQUIRED_REFERRAL_TASK_COINS) return;
+  if (energyToday < REQUIRED_REFERRAL_ENERGY) return;
 
   const referrerId = String(referredUser.referredByDeviceId);
   const referrerRef = db.collection("users").doc(referrerId);
@@ -152,7 +156,11 @@ async function maybeAwardReferralBonus(
     metadata: {
       referredDeviceIdMasked: maskUserId(referredRef.id),
       requiredTasks: REQUIRED_DAILY_TASKS,
+      requiredTaskCoins: REQUIRED_REFERRAL_TASK_COINS,
       requiredEnergy: REQUIRED_REFERRAL_ENERGY,
+      actualTasksToday: tasksToday,
+      actualTaskCoinsToday: taskCoinsToday,
+      actualEnergyToday: energyToday,
       pendingAfter,
     },
     createdAt: nowTs(),
@@ -172,9 +180,10 @@ export async function recordDailyEnergy(deviceId: string, energyAwarded: number)
     const user = snap.data() ?? {};
     const currentEnergy = user.lastDailyEnergyDate === today ? numberValue(user.dailyEnergyEarnedToday) : 0;
     const tasksToday = user.lastDailyTaskDate === today ? numberValue(user.dailyTasksCompletedToday) : 0;
+    const taskCoinsToday = user.lastDailyTaskDate === today ? numberValue(user.dailyTaskCoinsEarnedToday) : 0;
     const nextEnergy = currentEnergy + energy;
 
-    await maybeAwardReferralBonus(tx, db, userRef, user, tasksToday, nextEnergy);
+    await maybeAwardReferralBonus(tx, db, userRef, user, tasksToday, nextEnergy, taskCoinsToday);
 
     tx.set(userRef, {
       dailyEnergyEarnedToday: nextEnergy,
@@ -185,10 +194,11 @@ export async function recordDailyEnergy(deviceId: string, energyAwarded: number)
   });
 }
 
-export async function recordCompletedTask(deviceId: string) {
+export async function recordCompletedTask(deviceId: string, coinsEarned = 0) {
   const db = getFirestoreDb();
   const today = getTodayString(process.env["APP_TIMEZONE"] || "Asia/Karachi");
   const yesterday = yesterdayString();
+  const coins = Math.max(0, Math.floor(Number(coinsEarned || 0)));
   const userRef = db.collection("users").doc(deviceId);
 
   await db.runTransaction(async (tx) => {
@@ -197,16 +207,19 @@ export async function recordCompletedTask(deviceId: string) {
     const user = snap.data() ?? {};
     const firstTaskToday = user.lastDailyTaskDate !== today;
     const currentTasks = firstTaskToday ? 0 : numberValue(user.dailyTasksCompletedToday);
+    const currentTaskCoins = firstTaskToday ? 0 : numberValue(user.dailyTaskCoinsEarnedToday);
     const nextTasks = currentTasks + 1;
+    const nextTaskCoins = currentTaskCoins + coins;
     const existingStreak = numberValue(user.currentDailyStreak);
     const nextStreak = firstTaskToday ? (user.lastDailyTaskDate === yesterday ? existingStreak + 1 : 1) : Math.max(1, existingStreak);
     const longestStreak = Math.max(numberValue(user.longestDailyStreak), nextStreak);
     const energyToday = user.lastDailyEnergyDate === today ? numberValue(user.dailyEnergyEarnedToday) : 0;
 
-    await maybeAwardReferralBonus(tx, db, userRef, user, nextTasks, energyToday);
+    await maybeAwardReferralBonus(tx, db, userRef, user, nextTasks, energyToday, nextTaskCoins);
 
     tx.set(userRef, {
       dailyTasksCompletedToday: nextTasks,
+      dailyTaskCoinsEarnedToday: nextTaskCoins,
       lastDailyTaskDate: today,
       currentDailyStreak: nextStreak,
       longestDailyStreak: longestStreak,
@@ -264,16 +277,21 @@ export async function getLeaderboard(limit = 50) {
 
 export async function getReferralSummary(deviceId: string) {
   const db = getFirestoreDb();
+  const today = getTodayString(process.env["APP_TIMEZONE"] || "Asia/Karachi");
   const code = await ensureReferralCode(deviceId);
   const snap = await db.collection("users").where("referredByDeviceId", "==", deviceId).limit(200).get();
   const referredUsers = snap.docs.map((doc) => {
     const data = doc.data() ?? {};
+    const tasksToday = data.lastDailyTaskDate === today ? numberValue(data.dailyTasksCompletedToday) : 0;
+    const taskCoinsToday = data.lastDailyTaskDate === today ? numberValue(data.dailyTaskCoinsEarnedToday) : 0;
+    const energyToday = data.lastDailyEnergyDate === today ? numberValue(data.dailyEnergyEarnedToday) : 0;
     return {
       maskedUserId: maskUserId(doc.id),
       displayName: typeof data.displayName === "string" && data.displayName.trim() ? data.displayName.trim() : maskUserId(doc.id),
       qualified: Boolean(data.referralBonusAwarded),
-      tasksToday: numberValue(data.dailyTasksCompletedToday),
-      energyToday: numberValue(data.dailyEnergyEarnedToday),
+      tasksToday,
+      taskCoinsToday,
+      energyToday,
       joinedAt: data.createdAt ?? null,
     };
   });
@@ -283,6 +301,7 @@ export async function getReferralSummary(deviceId: string) {
     referralUrl: `earndaily://referral/${encodeURIComponent(code)}`,
     bonusCoins: REFERRAL_BONUS_COINS,
     requiredTasks: REQUIRED_DAILY_TASKS,
+    requiredTaskCoins: REQUIRED_REFERRAL_TASK_COINS,
     requiredEnergy: REQUIRED_REFERRAL_ENERGY,
     totalReferred: referredUsers.length,
     qualifiedReferrals: referredUsers.filter((u) => u.qualified).length,
