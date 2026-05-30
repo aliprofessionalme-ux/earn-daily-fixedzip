@@ -34,7 +34,7 @@ interface UserContextType {
   refreshUser: () => Promise<void>;
   retryInit: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
-  updateProfile: (displayName: string) => Promise<void>;
+  updateProfile: (displayName: string, phone?: string | null) => Promise<void>;
   checkIn: () => Promise<RewardResult>;
   spin: () => Promise<RewardResult>;
   scratch: () => Promise<RewardResult>;
@@ -118,8 +118,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return deviceIdentity.deviceId;
   }, [deviceIdentity?.deviceId]);
 
-  const updateProfile = useCallback(async (displayName: string) => {
-    const result = await apiUpdateUserProfile(requireDeviceId(), { displayName });
+  const updateProfile = useCallback(async (displayName: string, phone?: string | null) => {
+    const result = await apiUpdateUserProfile(requireDeviceId(), { displayName, phone });
     if (result.user) setUser(result.user);
     else await refreshUser();
   }, [refreshUser, requireDeviceId]);
