@@ -22,9 +22,9 @@ export const themeOptions: Array<{
   },
   {
     key: "midnightGold",
-    label: "Midnight Gold",
-    description: "Matte black with premium gold accents",
-    swatches: [colors.midnightGold.background, colors.midnightGold.primary, colors.midnightGold.secondary],
+    label: "Earn Daily Gold",
+    description: "Official black and gold wallet look",
+    swatches: [colors.midnightGold.background, colors.midnightGold.gold, colors.midnightGold.foreground],
   },
 ];
 
