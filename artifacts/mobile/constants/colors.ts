@@ -41,7 +41,7 @@ const colors = {
 
   midnightGold: {
     text: "#FFF8E5",
-    tint: "#EAB308",
+    tint: "#D97706",
 
     background: "#080C10",
     foreground: "#FFF8E5",
@@ -49,8 +49,8 @@ const colors = {
     card: "#121820",
     cardForeground: "#FFF8E5",
 
-    primary: "#EAB308",
-    primaryForeground: "#11130A",
+    primary: "#B45309",
+    primaryForeground: "#FFFFFF",
 
     secondary: "#14B8A6",
     secondaryForeground: "#041514",
