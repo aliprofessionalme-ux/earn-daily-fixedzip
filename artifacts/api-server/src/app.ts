@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import adminPanelRouter from "./routes/admin.js";
+import { adminSupportPanelRouter, enhanceAdminDashboardSupportLink } from "./routes/admin-support.js";
 import { logger } from "./lib/logger";
 
 const DEFAULT_PROVIDER_COINS_PER_USD = "5000";
@@ -44,7 +45,7 @@ app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true, credential
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/admin", adminPanelRouter);
+app.use("/admin", enhanceAdminDashboardSupportLink, adminSupportPanelRouter, adminPanelRouter);
 app.use("/api", router);
 
 export default app;
