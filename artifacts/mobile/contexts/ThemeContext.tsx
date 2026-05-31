@@ -71,13 +71,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-export function useTheme() {
+export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
   if (context) return context;
   return {
-    themeKey: "primary" as ThemeKey,
+    themeKey: "primary",
     palette: colors.light,
     radius: colors.radius,
-    setThemeKey: async () => {},
+    setThemeKey: async (_key: ThemeKey) => {},
   };
 }
