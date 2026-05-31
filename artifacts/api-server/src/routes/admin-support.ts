@@ -75,8 +75,9 @@ function formRedirect(res: Response, fallbackJson: unknown) {
 
 function formatDate(value: unknown) {
   try {
-    const date = typeof value === "object" && value && "toDate" in value && typeof value.toDate === "function"
-      ? value.toDate()
+    const timestamp = value as { toDate?: () => Date } | null | undefined;
+    const date = timestamp && typeof timestamp.toDate === "function"
+      ? timestamp.toDate()
       : new Date(String(value ?? ""));
     if (Number.isNaN(date.getTime())) return "-";
     return date.toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" });
@@ -99,8 +100,8 @@ async function findSupportTicketRef(ticketId: string) {
   if (directSnap.exists) return directRef;
 
   const querySnap = await db.collection("supportTickets").where("ticketId", "==", ticketId).limit(1).get();
-  if (querySnap.empty) return null;
-  return querySnap.docs[0].ref;
+  const first = querySnap.docs[0];
+  return first?.ref ?? null;
 }
 
 adminSupportPanelRouter.get("/support", requireAdminPanel, async (req, res) => {
@@ -190,11 +191,11 @@ export function enhanceAdminDashboardSupportLink(req: Request, res: Response, ne
   }
 
   const originalSend = res.send.bind(res);
-  res.send = ((body?: unknown): Response => {
+  res.send = ((body?: any): Response => {
     let nextBody = body;
     if (typeof body === "string" && body.includes("Support Tickets") && !body.includes("/admin/support")) {
       const supportTools = `<div class="actions" style="margin:8px 0 12px"><a class="btn green" href="/admin/support">Open Reply Center</a><span class="muted small">You can also reply directly from the boxes below.</span></div>`;
-      const supportScript = `<script>(function(){var forms=[].slice.call(document.querySelectorAll('form[action*="/api/admin/support/"][action$="/close"]'));forms.forEach(function(closeForm){var cell=closeForm.parentElement;if(!cell||cell.querySelector('[data-support-reply-form]'))return;var replyForm=document.createElement('form');replyForm.method='post';replyForm.action=closeForm.action.replace(/\\/close$/,'/reply');replyForm.className='stack';replyForm.setAttribute('data-support-reply-form','true');var csrf=closeForm.querySelector('input[name="_csrf"]');if(csrf)replyForm.appendChild(csrf.cloneNode(true));var textarea=document.createElement('textarea');textarea.className='input';textarea.name='reply';textarea.rows=3;textarea.required=true;textarea.placeholder='Write reply to user';replyForm.appendChild(textarea);var actions=document.createElement('div');actions.className='actions';var send=document.createElement('button');send.className='btn green';send.type='submit';send.textContent='Send Reply';actions.appendChild(send);replyForm.appendChild(actions);cell.insertBefore(replyForm,closeForm);closeForm.style.marginTop='8px';});})();</script>`;
+      const supportScript = `<script>(function(){var forms=[].slice.call(document.querySelectorAll('form[action*="/api/admin/support/"][action$="/close"]'));forms.forEach(function(closeForm){var cell=closeForm.parentElement;if(!cell||cell.querySelector('[data-support-reply-form]'))return;var replyForm=document.createElement('form');replyForm.method='post';replyForm.action=closeForm.action.replace(/\/close$/,'/reply');replyForm.className='stack';replyForm.setAttribute('data-support-reply-form','true');var csrf=closeForm.querySelector('input[name="_csrf"]');if(csrf)replyForm.appendChild(csrf.cloneNode(true));var textarea=document.createElement('textarea');textarea.className='input';textarea.name='reply';textarea.rows=3;textarea.required=true;textarea.placeholder='Write reply to user';replyForm.appendChild(textarea);var actions=document.createElement('div');actions.className='actions';var send=document.createElement('button');send.className='btn green';send.type='submit';send.textContent='Send Reply';actions.appendChild(send);replyForm.appendChild(actions);cell.insertBefore(replyForm,closeForm);closeForm.style.marginTop='8px';});})();</script>`;
       nextBody = body
         .replace("<h3>Support Tickets</h3>", `<h3>Support Tickets</h3>${supportTools}`)
         .replace("</body>", `${supportScript}</body>`);
