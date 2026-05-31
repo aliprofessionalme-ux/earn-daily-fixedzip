@@ -6,10 +6,12 @@ import webhooksRouter from "./webhooks.js";
 import adsRouter from "./ads.js";
 import settingsRouter from "./settings.js";
 import { adminApiRouter } from "./admin.js";
+import { adminSupportApiRouter } from "./admin-support.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/admin", adminSupportApiRouter);
 router.use("/admin", adminApiRouter);
 router.use("/users", usersRouter);
 router.use("/users/:deviceId/withdrawals", withdrawalsRouter);
