@@ -10,6 +10,12 @@ import { SectionTitle } from "@/components/SectionTitle";
 
 const issueTypes = ["Withdrawal", "Reward missing", "Offerwall", "Account", "Other"];
 const SUPPORT_EMAIL = "support@earndaily.app";
+
+type SupportTicketWithReply = SupportTicket & {
+  adminReply?: string | null;
+  lastReplyAt?: string | null;
+};
+
 function formatDate(ts: string) { try { return new Date(ts).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" }); } catch { return "-"; } }
 
 export default function SupportScreen() {
@@ -18,7 +24,7 @@ export default function SupportScreen() {
   const { deviceId } = useUser();
   const [issueType, setIssueType] = useState(issueTypes[0]);
   const [message, setMessage] = useState("");
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [tickets, setTickets] = useState<SupportTicketWithReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +34,10 @@ export default function SupportScreen() {
   const load = useCallback(async () => {
     if (!deviceId) return;
     setLoading(true); setError(null);
-    try { setTickets(await getSupportTickets(deviceId)); }
+    try {
+      const loadedTickets = await getSupportTickets(deviceId);
+      setTickets(loadedTickets as SupportTicketWithReply[]);
+    }
     catch (err) { setError(err instanceof Error ? err.message : "Unable to load tickets."); }
     finally { setLoading(false); }
   }, [deviceId]);
@@ -106,16 +115,30 @@ export default function SupportScreen() {
             keyExtractor={(item) => item.ticketId}
             scrollEnabled={false}
             contentContainerStyle={{ gap: 8 }}
-            renderItem={({ item }) => (
-              <View style={[styles.ticket, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-                <View style={styles.ticketTop}>
-                  <Text style={[styles.ticketTitle, { color: colors.foreground }]} numberOfLines={1}>{item.issueType}</Text>
-                  <Text style={[styles.status, { color: item.status === "closed" ? colors.mutedForeground : colors.gold }]}>{item.status.toUpperCase()}</Text>
+            renderItem={({ item }) => {
+              const adminReply = item.adminReply?.trim();
+              const statusColor = item.status === "closed" ? colors.mutedForeground : item.status === "replied" ? colors.green : colors.gold;
+              return (
+                <View style={[styles.ticket, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+                  <View style={styles.ticketTop}>
+                    <Text style={[styles.ticketTitle, { color: colors.foreground }]} numberOfLines={1}>{item.issueType}</Text>
+                    <Text style={[styles.status, { color: statusColor }]}>{item.status.toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.ticketMessage, { color: colors.mutedForeground }]}>{item.message}</Text>
+                  {adminReply ? (
+                    <View style={[styles.replyBox, { backgroundColor: colors.green + "12", borderColor: colors.green + "30" }]}> 
+                      <View style={styles.replyHeader}>
+                        <Feather name="corner-up-left" size={14} color={colors.green} />
+                        <Text style={[styles.replyTitle, { color: colors.green }]}>Admin reply</Text>
+                      </View>
+                      <Text style={[styles.replyText, { color: colors.foreground }]}>{adminReply}</Text>
+                      {item.lastReplyAt ? <Text style={[styles.replyDate, { color: colors.mutedForeground }]}>Replied: {formatDate(item.lastReplyAt)}</Text> : null}
+                    </View>
+                  ) : null}
+                  <Text style={[styles.ticketDate, { color: colors.mutedForeground }]}>Created: {formatDate(item.createdAt)}</Text>
                 </View>
-                <Text style={[styles.ticketMessage, { color: colors.mutedForeground }]}>{item.message}</Text>
-                <Text style={[styles.ticketDate, { color: colors.mutedForeground }]}>{formatDate(item.createdAt)}</Text>
-              </View>
-            )}
+              );
+            }}
           />
         )}
       </ScrollView>
@@ -145,10 +168,15 @@ const styles = StyleSheet.create({
   empty: { fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 17, textAlign: "center" },
   retry: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
   retryText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
-  ticket: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 },
+  ticket: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 },
   ticketTop: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   ticketTitle: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19, flexShrink: 1 },
   status: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
   ticketMessage: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 },
   ticketDate: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
+  replyBox: { borderWidth: 1, borderRadius: 12, padding: 10, gap: 5 },
+  replyHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  replyTitle: { fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 16 },
+  replyText: { fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 18 },
+  replyDate: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
 });
