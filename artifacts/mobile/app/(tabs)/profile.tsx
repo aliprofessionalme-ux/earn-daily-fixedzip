@@ -85,6 +85,10 @@ export default function ProfileScreen() {
   const level = useMemo(() => getUserLevel(user), [user]);
   const badges = useMemo(() => getUnlockedBadges(user, 6), [user]);
   const levelProgress = Math.round(level.progress * 100);
+  const profileGradient = useMemo(
+    () => themeKey === "primary" ? ["#1A0A3A", "#0D0D1A"] as const : [colors.purpleDark, colors.background] as const,
+    [colors.background, colors.purpleDark, themeKey],
+  );
 
   const saveProfile = async () => {
     const name = displayName.trim().replace(/\s+/g, " ");
@@ -113,7 +117,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <LinearGradient colors={[colors.purpleDark, colors.background]} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={profileGradient} style={StyleSheet.absoluteFillObject} />
       <ScrollView contentContainerStyle={{ paddingTop: topPad + 14, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
