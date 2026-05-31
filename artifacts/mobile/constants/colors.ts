@@ -39,6 +39,46 @@ const colors = {
     red: "#EF4444",
   },
 
+  midnightGold: {
+    text: "#FFF8E5",
+    tint: "#EAB308",
+
+    background: "#080C10",
+    foreground: "#FFF8E5",
+
+    card: "#121820",
+    cardForeground: "#FFF8E5",
+
+    primary: "#EAB308",
+    primaryForeground: "#11130A",
+
+    secondary: "#14B8A6",
+    secondaryForeground: "#041514",
+
+    muted: "#23303A",
+    mutedForeground: "#A8B3BD",
+
+    accent: "#22C55E",
+    accentForeground: "#03120A",
+
+    destructive: "#EF4444",
+    destructiveForeground: "#FFFFFF",
+
+    border: "#293541",
+    input: "#293541",
+
+    gold: "#FACC15",
+    goldLight: "#FDE68A",
+    purple: "#8B5CF6",
+    purpleLight: "#C4B5FD",
+    purpleDark: "#6D28D9",
+    green: "#22C55E",
+    pink: "#F472B6",
+    blue: "#38BDF8",
+    orange: "#FB923C",
+    red: "#EF4444",
+  },
+
   radius: 16,
 };
 
