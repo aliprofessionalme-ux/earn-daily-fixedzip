@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { themeOptions, useTheme, type ThemeKey } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { CompactStatCard } from "@/components/CompactStatCard";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -61,11 +62,13 @@ function ToolRow({ icon, title, subtitle, onPress }: { icon: React.ComponentProp
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { themeKey, setThemeKey } = useTheme();
   const { user, deviceId, installId, firebaseUid, authMode, authVerified, refreshUser, updateProfile } = useUser();
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [savingName, setSavingName] = useState(false);
+  const [savingTheme, setSavingTheme] = useState<ThemeKey | null>(null);
   const [nameNotice, setNameNotice] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => { setDisplayName(user?.displayName ?? ""); }, [user?.displayName]);
@@ -98,9 +101,19 @@ export default function ProfileScreen() {
     }
   };
 
+  const chooseTheme = async (nextThemeKey: ThemeKey) => {
+    if (savingTheme || nextThemeKey === themeKey) return;
+    setSavingTheme(nextThemeKey);
+    try {
+      await setThemeKey(nextThemeKey);
+    } finally {
+      setSavingTheme(null);
+    }
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <LinearGradient colors={["#1A0A3A", "#0D0D1A"]} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={[colors.purpleDark, colors.background]} style={StyleSheet.absoluteFillObject} />
       <ScrollView contentContainerStyle={{ paddingTop: topPad + 14, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
@@ -143,6 +156,39 @@ export default function ProfileScreen() {
               <Text style={styles.saveText}>Save</Text>
             </Pressable>
             {nameNotice ? <Text style={[styles.notice, { color: nameNotice.ok ? colors.green : colors.destructive }]}>{nameNotice.text}</Text> : null}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionTitle title="App theme" />
+          <View style={styles.themeGrid}>
+            {themeOptions.map((option) => {
+              const active = option.key === themeKey;
+              return (
+                <Pressable
+                  key={option.key}
+                  disabled={savingTheme !== null}
+                  onPress={() => void chooseTheme(option.key)}
+                  style={({ pressed }) => [
+                    styles.themeOption,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: active ? colors.primary : colors.border,
+                      opacity: pressed ? 0.86 : savingTheme && savingTheme !== option.key ? 0.62 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.themeTop}>
+                    <View style={styles.themeSwatches}>
+                      {option.swatches.map((swatch) => <View key={swatch} style={[styles.themeSwatch, { backgroundColor: swatch }]} />)}
+                    </View>
+                    {savingTheme === option.key ? <ActivityIndicator size="small" color={colors.primary} /> : active ? <Feather name="check-circle" size={17} color={colors.primary} /> : null}
+                  </View>
+                  <Text style={[styles.themeTitle, { color: active ? colors.primary : colors.foreground }]} numberOfLines={1}>{option.label}</Text>
+                  <Text style={[styles.themeText, { color: colors.mutedForeground }]} numberOfLines={2}>{option.description}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -245,6 +291,13 @@ const styles = StyleSheet.create({
   saveBtn: { minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   saveText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
   notice: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, textAlign: "center" },
+  themeGrid: { flexDirection: "row", gap: 8 },
+  themeOption: { flex: 1, minHeight: 116, borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
+  themeTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  themeSwatches: { flexDirection: "row", alignItems: "center" },
+  themeSwatch: { width: 22, height: 22, borderRadius: 999, borderWidth: 1, borderColor: "rgba(255,255,255,0.24)", marginRight: -5 },
+  themeTitle: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
+  themeText: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
   progressGrid: { flexDirection: "row", gap: 8, marginBottom: 14 },
   progressCard: { flex: 1, borderWidth: 1, borderRadius: 14, padding: 12, alignItems: "center" },
   progressValue: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 23 },
