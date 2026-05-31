@@ -2,9 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { OFFICIAL_WHATSAPP_CHANNEL_URL } from "@/constants/brand";
 import { themeOptions, useTheme, type ThemeKey } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { CompactStatCard } from "@/components/CompactStatCard";
@@ -113,6 +114,10 @@ export default function ProfileScreen() {
     } finally {
       setSavingTheme(null);
     }
+  };
+
+  const openWhatsAppChannel = () => {
+    void Linking.openURL(OFFICIAL_WHATSAPP_CHANNEL_URL);
   };
 
   return (
@@ -270,6 +275,7 @@ export default function ProfileScreen() {
           <View style={styles.toolsList}>
             <ToolRow icon="award" title="Top users" subtitle="Leaderboard with hidden user IDs and coin ranking" onPress={() => router.push("/leaderboard")} />
             <ToolRow icon="share-2" title="Referral QR" subtitle="Share your referral code and track qualified bonuses" onPress={() => router.push("/referral")} />
+            <ToolRow icon="send" title="Official WhatsApp Channel" subtitle="Join Earn Daily official updates and announcements" onPress={openWhatsAppChannel} />
             <ToolRow icon="gift" title="Earn Rewards" subtitle="Complete verified tasks for Pending Coins" onPress={() => router.push("/(tabs)/offerwall")} />
             <ToolRow icon="list" title="Transactions" subtitle="View all balance changes and rewards history" onPress={() => router.push("/transactions")} />
             <ToolRow icon="message-circle" title="Support" subtitle="Submit an issue and view previous tickets" onPress={() => router.push("/support")} />
