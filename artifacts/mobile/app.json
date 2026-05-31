@@ -10,14 +10,14 @@
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#0D0D1A"
+      "resizeMode": "contain",
+      "backgroundColor": "#050607"
     },
     "ios": {
       "supportsTablet": false
     },
     "android": {
-      "backgroundColor": "#0D0D1A",
+      "backgroundColor": "#050607",
       "package": "com.earndaily.app"
     },
     "web": {
