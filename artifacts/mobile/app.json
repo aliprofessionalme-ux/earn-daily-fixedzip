@@ -18,10 +18,14 @@
     },
     "android": {
       "backgroundColor": "#050607",
-      "package": "com.earndaily.app"
+      "package": "com.earndaily.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#050607"
+      }
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
