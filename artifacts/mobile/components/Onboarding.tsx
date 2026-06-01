@@ -1,13 +1,15 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReferralCodeScanner } from "@/components/ReferralCodeScanner";
 import { useUser } from "@/contexts/UserContext";
 import { useColors } from "@/hooks/useColors";
 import { applyReferralCode } from "@/services/api";
 import { normalizeReferralCode } from "@/utils/referralCode";
+
+const earnDailyIcon = require("../assets/images/icon.png");
 
 const steps = [
   { icon: "star" as const, title: "Earn safely", body: "Check-in, Spin and Scratch earn Energy. Earning tasks add Pending Coins after provider verification." },
@@ -79,7 +81,7 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
       <LinearGradient colors={["#1A0A3A", "#0D0D1A"]} style={StyleSheet.absoluteFillObject} />
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={[styles.hero, { borderColor: colors.gold + "44" }]}> 
-          <Feather name="user-check" size={34} color={colors.gold} />
+          <Image source={earnDailyIcon} style={styles.heroLogo} resizeMode="cover" />
           <Text style={[styles.title, { color: colors.foreground }]}>Setup your Earn Daily profile</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Username is required. Phone number is optional and can be added later from Profile.</Text>
         </View>
@@ -155,6 +157,7 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   hero: { borderWidth: 1, borderRadius: 22, padding: 18, alignItems: "center", backgroundColor: "rgba(255,255,255,0.05)", marginBottom: 14 },
+  heroLogo: { width: 76, height: 76, borderRadius: 22, marginBottom: 2 },
   title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30, textAlign: "center", marginTop: 10 },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: 6 },
   setupCard: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 8, marginBottom: 14 },

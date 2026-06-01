@@ -1,9 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+
+const earnDailyIcon = require("../assets/images/icon.png");
 
 export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?: () => void }) {
   const colors = useColors();
@@ -11,19 +13,17 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
   const hasError = Boolean(error);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}> 
-      <LinearGradient colors={["#1A0A3A", "#0D0D1A", "#090911"]} style={StyleSheet.absoluteFillObject} />
+    <View style={[styles.root, { backgroundColor: "#050607", paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}> 
+      <LinearGradient colors={["#050607", "#0B0B0B", "#010101"]} style={StyleSheet.absoluteFillObject} />
       <View style={styles.glowGold} />
-      <View style={styles.glowPurple} />
+      <View style={styles.glowSoft} />
 
-      <View style={[styles.logoWrap, { borderColor: colors.gold + "66" }]}> 
-        <LinearGradient colors={["#FDE68A", "#F59E0B", "#7C3AED"]} style={styles.logoInner}>
-          <Feather name="zap" size={36} color="#110A02" />
-        </LinearGradient>
+      <View style={[styles.logoWrap, { backgroundColor: colors.card, borderColor: colors.gold + "77" }]}> 
+        <Image source={earnDailyIcon} style={styles.logoImage} resizeMode="cover" />
       </View>
 
       <Text style={[styles.title, { color: colors.foreground }]}>Earn Daily</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Secure rewards - Coins - PKR withdrawals</Text>
+      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Earn today, secure tomorrow</Text>
       <Text style={[styles.credit, { color: colors.gold }]}>Design & Developed by Muhammad Ali Irfan Khan</Text>
 
       <View style={[styles.statusCard, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.10)" }]}> 
@@ -51,10 +51,10 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
 
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
-  glowGold: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(245,158,11,0.16)", top: 80, right: -80 },
-  glowPurple: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(124,58,237,0.18)", bottom: -80, left: -90 },
-  logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, padding: 5, marginBottom: 18, shadowColor: "#F59E0B", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
-  logoInner: { flex: 1, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  glowGold: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(242,201,76,0.16)", top: 80, right: -80 },
+  glowSoft: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(255,255,255,0.06)", bottom: -80, left: -90 },
+  logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, padding: 5, marginBottom: 18, shadowColor: "#F2C94C", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
+  logoImage: { width: "100%", height: "100%", borderRadius: 22 },
   title: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: 0, textAlign: "center" },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 6, textAlign: "center" },
   credit: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: "center" },

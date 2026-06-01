@@ -40,42 +40,42 @@ const colors = {
   },
 
   midnightGold: {
-    text: "#FFF8E5",
-    tint: "#D97706",
+    text: "#FFF7D6",
+    tint: "#D6A62C",
 
-    background: "#080C10",
-    foreground: "#FFF8E5",
+    background: "#050607",
+    foreground: "#FFF9EA",
 
-    card: "#121820",
-    cardForeground: "#FFF8E5",
+    card: "#111318",
+    cardForeground: "#FFF9EA",
 
-    primary: "#B45309",
+    primary: "#B8860B",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#14B8A6",
-    secondaryForeground: "#041514",
+    secondary: "#F2C94C",
+    secondaryForeground: "#100B02",
 
-    muted: "#23303A",
-    mutedForeground: "#A8B3BD",
+    muted: "#24211A",
+    mutedForeground: "#B8B0A0",
 
-    accent: "#22C55E",
-    accentForeground: "#03120A",
+    accent: "#D6A62C",
+    accentForeground: "#100B02",
 
     destructive: "#EF4444",
     destructiveForeground: "#FFFFFF",
 
-    border: "#293541",
-    input: "#293541",
+    border: "#3A3324",
+    input: "#3A3324",
 
-    gold: "#FACC15",
-    goldLight: "#FDE68A",
-    purple: "#8B5CF6",
-    purpleLight: "#C4B5FD",
-    purpleDark: "#6D28D9",
+    gold: "#F2C94C",
+    goldLight: "#FFE68A",
+    purple: "#D6A62C",
+    purpleLight: "#FFE68A",
+    purpleDark: "#050607",
     green: "#22C55E",
-    pink: "#F472B6",
-    blue: "#38BDF8",
-    orange: "#FB923C",
+    pink: "#EAB308",
+    blue: "#E5E7EB",
+    orange: "#D97706",
     red: "#EF4444",
   },
 
