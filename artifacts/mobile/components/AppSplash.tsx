@@ -1,11 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OfficialWalletLogo } from "@/components/OfficialWalletLogo";
 import { useColors } from "@/hooks/useColors";
-
-const earnDailyIcon = require("../assets/images/icon.png");
 
 export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?: () => void }) {
   const colors = useColors();
@@ -19,7 +18,7 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
       <View style={styles.glowSoft} />
 
       <View style={[styles.logoWrap, { backgroundColor: colors.card, borderColor: colors.gold + "77" }]}> 
-        <Image source={earnDailyIcon} style={styles.logoImage} resizeMode="cover" />
+        <OfficialWalletLogo size={76} />
       </View>
 
       <Text style={[styles.title, { color: colors.foreground }]}>Earn Daily</Text>
@@ -53,8 +52,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   glowGold: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(242,201,76,0.16)", top: 80, right: -80 },
   glowSoft: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(255,255,255,0.06)", bottom: -80, left: -90 },
-  logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, padding: 5, marginBottom: 18, shadowColor: "#F2C94C", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
-  logoImage: { width: "100%", height: "100%", borderRadius: 22 },
+  logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, marginBottom: 18, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowColor: "#F2C94C", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
   title: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: 0, textAlign: "center" },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 6, textAlign: "center" },
   credit: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: "center" },
