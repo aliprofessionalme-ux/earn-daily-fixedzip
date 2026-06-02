@@ -175,6 +175,7 @@ export default function TaskHistoryScreen() {
           renderItem={({ item }) => {
             const accent = statusColor(item.status, colors);
             const reason = item.rejectionReason || item.reversalReason;
+            const category = publicCategory(item.offerCategory);
             return (
               <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
                 <View style={styles.cardTop}>
@@ -182,8 +183,8 @@ export default function TaskHistoryScreen() {
                     <Feather name={item.status === "confirmed" ? "check-circle" : item.status === "rejected" || item.status === "reversed" ? "alert-triangle" : "clock"} size={17} color={accent} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[styles.offerName, { color: colors.foreground }]} numberOfLines={1}>{item.offerName || publicCategory(item.offerCategory)}</Text>
-                    <Text style={[styles.offerSub, { color: colors.mutedForeground }]}>{publicCategory(item.offerCategory)} - {formatDate(item.createdAt)}</Text>
+                    <Text style={[styles.offerName, { color: colors.foreground }]} numberOfLines={1}>{item.offerName || category}</Text>
+                    <Text style={[styles.offerSub, { color: colors.mutedForeground }]}>{category} - {formatDate(item.createdAt)}</Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: accent + "18", borderColor: accent + "44" }]}> 
                     <Text style={[styles.statusText, { color: accent }]}>{statusText(item.status)}</Text>
@@ -195,8 +196,8 @@ export default function TaskHistoryScreen() {
                     <Text style={[styles.metaValue, { color: colors.gold }]}>{item.coinsCalculated.toLocaleString()} coins</Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>Revenue</Text>
-                    <Text style={[styles.metaValue, { color: colors.foreground }]}>${Number(item.payoutUSD || 0).toFixed(2)}</Text>
+                    <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>Category</Text>
+                    <Text style={[styles.metaValue, { color: colors.foreground }]} numberOfLines={1}>{category}</Text>
                   </View>
                 </View>
                 {item.verificationHoldUntil && item.status === "pending_verification" ? (
