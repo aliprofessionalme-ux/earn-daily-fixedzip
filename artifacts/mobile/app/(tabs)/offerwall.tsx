@@ -77,7 +77,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
     {
       id: "game_tasks",
       title: "Game Tasks",
-      subtitle: gameReady ? "Complete game missions. Rewards enter Pending Coins first." : gameItem?.reason ?? "Coming Soon until secure task callbacks are configured.",
+      subtitle: gameReady ? "Complete game missions. Rewards enter Pending Coins first." : "Game missions are being prepared. Please check back soon.",
       icon: "play",
       rewardType: "pending_coins",
       status: gameReady ? "available" : "coming_soon",
@@ -88,7 +88,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
     {
       id: "survey_rewards",
       title: "Survey Rewards",
-      subtitle: surveyReady ? "Answer partner surveys. Rewards stay pending until verified." : surveyItem?.reason ?? "Survey tasks will open after secure callback verification is ready.",
+      subtitle: surveyReady ? "Answer partner surveys. Rewards stay pending until verified." : "Survey rewards are being prepared. Please check back soon.",
       icon: "message-square",
       rewardType: "pending_coins",
       status: surveyReady ? "available" : "coming_soon",
@@ -99,7 +99,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
     {
       id: "app_install_tasks",
       title: "App Install Tasks",
-      subtitle: appInstallReady ? "Install apps and complete missions for verified rewards." : appInstallItem?.reason ?? "Try partner apps after this task source is configured.",
+      subtitle: appInstallReady ? "Install apps and complete missions for verified rewards." : "App install rewards are being prepared. Please check back soon.",
       icon: "download",
       rewardType: "pending_coins",
       status: appInstallReady ? "available" : "coming_soon",
@@ -110,7 +110,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
     {
       id: "high_reward_offers",
       title: "High Reward Offers",
-      subtitle: highRewardReady ? "Higher-value offers may require extra verification or admin approval." : highRewardItem?.reason ?? "Coming Soon until secure high-value task callbacks are configured.",
+      subtitle: highRewardReady ? "Higher-value offers may require extra verification or admin approval." : "High reward offers are being prepared. Please check back soon.",
       icon: "award",
       rewardType: "pending_coins",
       status: highRewardReady ? "available" : "coming_soon",
@@ -121,7 +121,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
     {
       id: "partner_tasks",
       title: "Partner Tasks",
-      subtitle: partnerReady ? "Complete partner tasks from approved earning networks." : partnerItem?.reason ?? "More earning tasks will appear here after safe provider setup.",
+      subtitle: partnerReady ? "Complete partner tasks from approved earning networks." : "Partner earning tasks are being prepared. Please check back soon.",
       icon: "briefcase",
       rewardType: "pending_coins",
       status: partnerReady ? "available" : "coming_soon",
@@ -132,7 +132,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
     {
       id: "watch_ads",
       title: "Watch Ads & Earn Energy",
-      subtitle: watchAdsItem?.reason ?? "Coming Soon until rewarded ad verification is implemented in the APK.",
+      subtitle: "Rewarded ads are being prepared. Please check back soon.",
       icon: "film",
       rewardType: "energy",
       status: "coming_soon",
