@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -231,8 +232,16 @@ export default function OfferwallScreen() {
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <ScrollView contentContainerStyle={{ paddingTop: topPad + 10, paddingBottom: Platform.OS === "web" ? 34 : 112 }} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <SectionTitle title="Earning Tasks" />
-          <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Tasks earn Pending Coins. Verified rewards become Confirmed Coins later.</Text>
+          <View style={styles.headerTop}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <SectionTitle title="Earning Tasks" />
+              <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Tasks earn Pending Coins. Verified rewards become Confirmed Coins later.</Text>
+            </View>
+            <Pressable onPress={() => router.push("/task-history")} style={[styles.historyBtn, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+              <Feather name="list" size={15} color={colors.gold} />
+              <Text style={[styles.historyBtnText, { color: colors.gold }]}>History</Text>
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
@@ -297,6 +306,9 @@ export default function OfferwallScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 },
+  headerTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  historyBtn: { minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 2 },
+  historyBtnText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
   webHeader: { paddingHorizontal: 16, paddingBottom: 8, borderBottomWidth: 1 },
   headerTitle: { fontFamily: "Inter_700Bold", fontSize: 19, lineHeight: 24 },
   headerSubtitle: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17, marginTop: 2 },
