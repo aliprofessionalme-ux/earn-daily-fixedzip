@@ -50,9 +50,9 @@ export function GameAdGate({ spinsLeft, scratchLeft }: GameAdGateProps) {
   }, [gateRequired]);
 
   const bodyText = useMemo(() => {
-    if (recorded) return "Today’s game session ad is done.";
+    if (recorded) return "Today's game session ad is done.";
     if (loadingSettings) return "Preparing the required ad...";
-    return "You completed 5 spins and 5 scratches. Watch one ad to finish today’s game session.";
+    return "You completed 5 spins and 5 scratches. Watch one ad to finish today's game session.";
   }, [loadingSettings, recorded]);
 
   const onWatchRequiredAd = async () => {
