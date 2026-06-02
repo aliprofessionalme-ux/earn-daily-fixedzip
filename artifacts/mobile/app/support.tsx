@@ -3,13 +3,13 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SUPPORT_EMAIL } from "@/constants/brand";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { getSupportTickets, submitSupportTicket, type SupportTicket } from "@/services/api";
 import { SectionTitle } from "@/components/SectionTitle";
 
 const issueTypes = ["Withdrawal", "Reward missing", "Offerwall", "Account", "Other"];
-const SUPPORT_EMAIL = "support@earndaily.app";
 
 type SupportTicketWithReply = SupportTicket & {
   adminReply?: string | null;
@@ -74,6 +74,17 @@ export default function SupportScreen() {
             <Text style={[styles.emailText, { color: colors.gold }]}>{SUPPORT_EMAIL}</Text>
           </View>
         </View>
+
+        <Pressable onPress={() => router.push("/notifications")} style={[styles.quickLink, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <View style={[styles.quickIcon, { backgroundColor: colors.gold + "18" }]}> 
+            <Feather name="bell" size={17} color={colors.gold} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.quickTitle, { color: colors.foreground }]}>Notification Center</Text>
+            <Text style={[styles.quickSubtitle, { color: colors.mutedForeground }]} numberOfLines={1}>See support replies, withdrawal updates and reward alerts</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
 
         <View style={[styles.form, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Issue type</Text>
@@ -152,9 +163,13 @@ const styles = StyleSheet.create({
   back: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   title: { fontFamily: "Inter_700Bold", fontSize: 22, lineHeight: 28 },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16, marginTop: 2 },
-  emailCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  emailCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginBottom: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   emailTitle: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   emailText: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 1 },
+  quickLink: { borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  quickIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
+  quickSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 1 },
   form: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 8, marginBottom: 14 },
   label: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
