@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { getTransactions, type TransactionDocument, type TransactionType } from "@/services/api";
-import { SectionTitle } from "@/components/SectionTitle";
 
 const TYPE_LABELS: Record<TransactionType, string> = {
   checkin: "Daily Check-In",
@@ -22,6 +21,7 @@ const TYPE_LABELS: Record<TransactionType, string> = {
   withdrawal_refund: "Withdrawal Refund",
   admin_adjustment: "Admin Adjustment",
   energy_purchase_slot: "Extra Task Slot",
+  referral_bonus: "Referral Bonus",
 };
 
 function getStatusColor(status: string, colors: ReturnType<typeof useColors>): string {
@@ -35,6 +35,7 @@ function getIconForType(type: string): React.ComponentProps<typeof Feather>["nam
   if (type.includes("checkin")) return "sun";
   if (type.includes("spin")) return "zap";
   if (type.includes("scratch")) return "layers";
+  if (type.includes("referral")) return "users";
   if (type.includes("offerwall")) return "gift";
   if (type.includes("unity")) return "film";
   if (type.includes("withdrawal")) return "credit-card";
@@ -44,7 +45,7 @@ function getIconForType(type: string): React.ComponentProps<typeof Feather>["nam
 }
 
 function formatDate(ts: string) {
-  try { return new Date(ts).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; }
+  try { return new Date(ts).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "-"; }
 }
 function signed(n: number, suffix = "") { return `${n > 0 ? "+" : ""}${n}${suffix}`; }
 
@@ -68,9 +69,9 @@ export default function TransactionsScreen() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: topPad }]}>
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: topPad }]}> 
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <Feather name="arrow-left" size={20} color={colors.foreground} />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -88,7 +89,7 @@ export default function TransactionsScreen() {
         <View style={styles.center}>
           <Feather name="alert-circle" size={42} color={colors.destructive} />
           <Text style={[styles.empty, { color: colors.destructive }]}>{error}</Text>
-          <Pressable onPress={load} style={[styles.retry, { backgroundColor: colors.primary }]}>
+          <Pressable onPress={load} style={[styles.retry, { backgroundColor: colors.primary }]}> 
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -111,18 +112,21 @@ export default function TransactionsScreen() {
             const energyFromMeta = item.metadata?.energyAwarded ?? item.metadata?.energyChange ?? item.metadata?.energyGiven ?? 0;
 
             return (
-              <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.icon, { backgroundColor: statusColor + "18" }]}>
+              <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+                <View style={[styles.icon, { backgroundColor: statusColor + "18" }]}> 
                   <Feather name={icon} size={16} color={statusColor} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{label}</Text>
-                  <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{formatDate(item.createdAt)} · <Text style={{ color: statusColor }}>{item.status}</Text></Text>
+                  <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{formatDate(item.createdAt)} - <Text style={{ color: statusColor }}>{item.status}</Text></Text>
                   {typeof item.balanceAfterCoins === "number" ? (
-                    <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Balance: {item.balanceAfterCoins.toLocaleString()} coins · PKR {Number(item.balanceAfterPKR ?? 0).toFixed(2)}</Text>
+                    <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Balance: {item.balanceAfterCoins.toLocaleString()} coins - PKR {Number(item.balanceAfterPKR ?? 0).toFixed(2)}</Text>
                   ) : null}
                   {item.type === "offerwall_pending" && (
                     <Text style={[styles.pendingNote, { color: colors.orange }]}>Pending rewards are under advertiser verification and are not withdrawable yet.</Text>
+                  )}
+                  {item.type === "referral_bonus" && (
+                    <Text style={[styles.pendingNote, { color: colors.gold }]}>Referral bonus stays pending until normal reward verification passes.</Text>
                   )}
                 </View>
                 <View style={styles.amounts}>
