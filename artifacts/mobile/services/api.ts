@@ -258,9 +258,18 @@ export interface AdEventDocument {
   createdAt: string;
 }
 
+export type ProviderKey = "monlix" | "tapjoy" | "ayet" | "pubscale" | "unity";
+export type ProviderLaunchType = "webview" | "native" | "disabled";
+
 export interface ProviderLaunchItem {
   enabled: boolean;
+  provider?: ProviderKey;
+  launchType?: ProviderLaunchType;
   publicAppId?: string;
+  publicSdkKey?: string;
+  placementId?: string;
+  launchUrl?: string;
+  callbackUrl?: string;
   reason?: string;
 }
 
@@ -271,6 +280,7 @@ export interface ProviderLaunchStatus {
   highRewardOffers: ProviderLaunchItem;
   partnerTasks: ProviderLaunchItem;
   watchAdsEnergy: ProviderLaunchItem;
+  dailyGameAdGate?: ProviderLaunchItem;
 }
 
 export interface ProviderCallbackUrls {
@@ -413,7 +423,7 @@ export async function submitSupportTicket(deviceId: string, payload: { issueType
   return apiFetch(`/users/${encodeURIComponent(deviceId)}/support`, { method: "POST", body: JSON.stringify(payload) });
 }
 
-// Unity endpoints are intentionally disabled server-side until native SDK verification is implemented.
+// Unity rewarded energy stays protected until native SDK server verification is wired.
 export async function recordUnityRewardedComplete(deviceId: string, placementId?: string): Promise<RewardResult> {
   return apiFetch<RewardResult>(`/users/${encodeURIComponent(deviceId)}/ads/unity/rewarded-complete`, {
     method: "POST",

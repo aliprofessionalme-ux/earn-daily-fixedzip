@@ -19,6 +19,7 @@ import * as Haptics from "expo-haptics";
 
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
+import { GameAdGate } from "@/components/GameAdGate";
 import type { RewardResult } from "@/services/api";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -231,7 +232,7 @@ export default function GamesScreen() {
   const activeDescription = useMemo(() => activeTab === "spin" ? "Spin the wheel to earn random Energy for app benefits." : "Tap to reveal and earn random Energy rewards.", [activeTab]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <LinearGradient colors={["#0D0D1A", "#131326", "#090911"]} style={StyleSheet.absoluteFillObject} />
       <View style={styles.bgGlowA} />
       <View style={styles.bgGlowB} />
@@ -266,6 +267,8 @@ export default function GamesScreen() {
             <ScratchCard disabled={scratchLeft <= 0} onBackendScratch={scratch} />
           )}
         </View>
+
+        <GameAdGate spinsLeft={spinsLeft} scratchLeft={scratchLeft} />
 
         <View style={[styles.infoBox, { borderColor: colors.border, backgroundColor: "rgba(255,255,255,0.04)" }]}>
           <Feather name="zap" size={18} color={colors.gold} />

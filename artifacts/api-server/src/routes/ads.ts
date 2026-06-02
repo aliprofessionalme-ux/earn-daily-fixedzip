@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
-import { handleRouteError } from "../services/firebase-admin.js";
+import { handleRouteError, recordUnityInterstitialShown } from "../services/firebase-admin.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 
 const router = Router({ mergeParams: true });
@@ -8,6 +8,10 @@ const router = Router({ mergeParams: true });
 function sendError(res: Response, err: unknown, fallback: string) {
   const normalized = handleRouteError(err, fallback);
   res.status(normalized.status).json(normalized.body);
+}
+
+function envValue(name: string) {
+  return String(process.env[name] ?? "").trim();
 }
 
 const unityRequestSchema = z.object({
@@ -45,10 +49,34 @@ router.post("/unity/interstitial-shown", requireFirebaseAuth, async (req: Reques
   }
 
   try {
-    unityDisabled(res);
+    const deviceId = String(req.params.deviceId ?? "").trim();
+    if (!deviceId) {
+      res.status(400).json({ success: false, message: "Device ID is required.", code: "missing_device_id" });
+      return;
+    }
+
+    const gameId = envValue("UNITY_ANDROID_GAME_ID");
+    const configuredPlacementId = envValue("UNITY_INTERSTITIAL_PLACEMENT_ID");
+    if (!gameId || !configuredPlacementId) {
+      res.status(503).json({
+        success: false,
+        message: "Unity interstitial ad gate is not configured yet.",
+        code: "unity_interstitial_not_configured",
+      });
+      return;
+    }
+
+    const placementId = parsed.data.placementId || configuredPlacementId;
+    if (placementId !== configuredPlacementId) {
+      res.status(400).json({ success: false, message: "Invalid Unity placement.", code: "invalid_unity_placement" });
+      return;
+    }
+
+    const event = await recordUnityInterstitialShown(deviceId, placementId);
+    res.json({ success: true, message: "Required ad view recorded.", event });
   } catch (err) {
-    req.log.error({ err }, "Error handling disabled Unity interstitial route");
-    sendError(res, err, "Unity interstitial route is disabled.");
+    req.log.error({ err }, "Error recording Unity interstitial route");
+    sendError(res, err, "Unable to record Unity interstitial view.");
   }
 });
 
