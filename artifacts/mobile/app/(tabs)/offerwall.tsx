@@ -17,9 +17,9 @@ import { WebView } from "react-native-webview";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { SectionTitle } from "@/components/SectionTitle";
-import { getAppSettings, type ProviderLaunchStatus } from "@/services/api";
+import { getAppSettings, type ProviderLaunchItem, type ProviderLaunchStatus } from "@/services/api";
 
-type ProviderKey = "game_tasks" | "high_reward_offers";
+type CategoryId = "game_tasks" | "survey_rewards" | "app_install_tasks" | "high_reward_offers" | "partner_tasks" | "watch_ads";
 type OfferFilter = "all" | "open" | "fast" | "high" | "games" | "surveys" | "apps" | "energy" | "new";
 
 const OFFER_FILTERS: Array<{ id: OfferFilter; label: string; icon: React.ComponentProps<typeof Feather>["name"] }> = [
@@ -35,21 +35,24 @@ const OFFER_FILTERS: Array<{ id: OfferFilter; label: string; icon: React.Compone
 ];
 
 interface EarningCategory {
-  id: ProviderKey | "survey_rewards" | "app_install_tasks" | "partner_tasks" | "watch_ads";
+  id: CategoryId;
   title: string;
   subtitle: string;
   icon: React.ComponentProps<typeof Feather>["name"];
   rewardType: "pending_coins" | "energy";
   status: "available" | "coming_soon";
-  provider?: ProviderKey;
-  publicAppId?: string;
+  launchItem?: ProviderLaunchItem | null;
   gradient: [string, string];
   filters: OfferFilter[];
 }
 
-function monlixUrl(publicAppId: string | undefined, deviceId: string): string | null {
-  if (!publicAppId || !deviceId) return null;
-  return `https://offers.monlix.com/?app=${encodeURIComponent(publicAppId)}&user=${encodeURIComponent(deviceId)}`;
+function isWebLaunchReady(item?: ProviderLaunchItem | null): boolean {
+  return Boolean(item?.enabled && item.launchType === "webview" && item.launchUrl);
+}
+
+function resolveLaunchUrl(item: ProviderLaunchItem | null | undefined, deviceId: string): string | null {
+  if (!item?.launchUrl || !deviceId) return null;
+  return item.launchUrl.split("{deviceId}").join(encodeURIComponent(deviceId));
 }
 
 function openTag(enabled: boolean): OfferFilter[] {
@@ -57,72 +60,83 @@ function openTag(enabled: boolean): OfferFilter[] {
 }
 
 function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCategory[] {
-  const gameReady = Boolean(providerLaunch?.gameTasks?.enabled && providerLaunch.gameTasks.publicAppId);
-  const highRewardReady = Boolean(providerLaunch?.highRewardOffers?.enabled && providerLaunch.highRewardOffers.publicAppId);
-  const appInstallReason = providerLaunch?.appInstallTasks?.reason;
+  const gameItem = providerLaunch?.gameTasks ?? null;
+  const surveyItem = providerLaunch?.surveyRewards ?? null;
+  const appInstallItem = providerLaunch?.appInstallTasks ?? null;
+  const highRewardItem = providerLaunch?.highRewardOffers ?? null;
+  const partnerItem = providerLaunch?.partnerTasks ?? null;
+  const watchAdsItem = providerLaunch?.watchAdsEnergy ?? null;
+
+  const gameReady = isWebLaunchReady(gameItem);
+  const surveyReady = isWebLaunchReady(surveyItem);
+  const appInstallReady = isWebLaunchReady(appInstallItem);
+  const highRewardReady = isWebLaunchReady(highRewardItem);
+  const partnerReady = isWebLaunchReady(partnerItem);
 
   return [
     {
       id: "game_tasks",
       title: "Game Tasks",
-      subtitle: gameReady ? "Complete game missions. Rewards enter Pending Coins first." : "Coming Soon until secure task callbacks are configured.",
+      subtitle: gameReady ? "Complete game missions. Rewards enter Pending Coins first." : gameItem?.reason ?? "Coming Soon until secure task callbacks are configured.",
       icon: "play",
       rewardType: "pending_coins",
       status: gameReady ? "available" : "coming_soon",
-      provider: gameReady ? "game_tasks" : undefined,
-      publicAppId: providerLaunch?.gameTasks?.publicAppId,
+      launchItem: gameItem,
       gradient: ["#7C3AED", "#4C1D95"],
       filters: ["all", "fast", "games", "new", ...openTag(gameReady)],
     },
     {
       id: "survey_rewards",
       title: "Survey Rewards",
-      subtitle: providerLaunch?.surveyRewards?.reason ?? "Survey tasks will open after secure callback verification is ready.",
+      subtitle: surveyReady ? "Answer partner surveys. Rewards stay pending until verified." : surveyItem?.reason ?? "Survey tasks will open after secure callback verification is ready.",
       icon: "message-square",
       rewardType: "pending_coins",
-      status: "coming_soon",
+      status: surveyReady ? "available" : "coming_soon",
+      launchItem: surveyItem,
       gradient: ["#059669", "#047857"],
-      filters: ["all", "surveys"],
+      filters: ["all", "surveys", ...openTag(surveyReady)],
     },
     {
       id: "app_install_tasks",
       title: "App Install Tasks",
-      subtitle: appInstallReason ?? "Try partner apps after this task source is configured.",
+      subtitle: appInstallReady ? "Install apps and complete missions for verified rewards." : appInstallItem?.reason ?? "Try partner apps after this task source is configured.",
       icon: "download",
       rewardType: "pending_coins",
-      status: "coming_soon",
+      status: appInstallReady ? "available" : "coming_soon",
+      launchItem: appInstallItem,
       gradient: ["#D97706", "#B45309"],
-      filters: ["all", "apps", "new"],
+      filters: ["all", "apps", "new", ...openTag(appInstallReady)],
     },
     {
       id: "high_reward_offers",
       title: "High Reward Offers",
-      subtitle: highRewardReady ? "Higher-value offers may require extra verification or admin approval." : "Coming Soon until secure high-value task callbacks are configured.",
+      subtitle: highRewardReady ? "Higher-value offers may require extra verification or admin approval." : highRewardItem?.reason ?? "Coming Soon until secure high-value task callbacks are configured.",
       icon: "award",
       rewardType: "pending_coins",
       status: highRewardReady ? "available" : "coming_soon",
-      provider: highRewardReady ? "high_reward_offers" : undefined,
-      publicAppId: providerLaunch?.highRewardOffers?.publicAppId,
+      launchItem: highRewardItem,
       gradient: ["#DC2626", "#991B1B"],
       filters: ["all", "high", "new", ...openTag(highRewardReady)],
     },
     {
       id: "partner_tasks",
       title: "Partner Tasks",
-      subtitle: providerLaunch?.partnerTasks?.reason ?? "More earning tasks will appear here after safe provider setup.",
+      subtitle: partnerReady ? "Complete partner tasks from approved earning networks." : partnerItem?.reason ?? "More earning tasks will appear here after safe provider setup.",
       icon: "briefcase",
       rewardType: "pending_coins",
-      status: "coming_soon",
+      status: partnerReady ? "available" : "coming_soon",
+      launchItem: partnerItem,
       gradient: ["#2563EB", "#1E40AF"],
-      filters: ["all", "fast"],
+      filters: ["all", "fast", ...openTag(partnerReady)],
     },
     {
       id: "watch_ads",
       title: "Watch Ads & Earn Energy",
-      subtitle: providerLaunch?.watchAdsEnergy?.reason ?? "Coming Soon until rewarded ad verification is implemented in the APK.",
+      subtitle: watchAdsItem?.reason ?? "Coming Soon until rewarded ad verification is implemented in the APK.",
       icon: "film",
       rewardType: "energy",
       status: "coming_soon",
+      launchItem: watchAdsItem,
       gradient: ["#0891B2", "#0E7490"],
       filters: ["all", "energy", "fast"],
     },
@@ -159,9 +173,9 @@ export default function OfferwallScreen() {
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
   const openOfferwall = (category: EarningCategory) => {
-    if (category.status !== "available" || !category.provider) return;
+    if (category.status !== "available") return;
 
-    const url = monlixUrl(category.publicAppId, deviceId ?? "");
+    const url = resolveLaunchUrl(category.launchItem, deviceId ?? "");
     if (!url) return;
 
     setActiveWebviewUrl(url);
