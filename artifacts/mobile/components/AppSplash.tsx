@@ -1,15 +1,63 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OfficialWalletLogo } from "@/components/OfficialWalletLogo";
 import { useColors } from "@/hooks/useColors";
+
+function getFriendlyError(error?: string | null) {
+  const text = String(error ?? "").toLowerCase();
+  const backendOffline =
+    text.includes("api url") ||
+    text.includes("timed out") ||
+    text.includes("failed to fetch") ||
+    text.includes("network") ||
+    text.includes("request failed") ||
+    text.includes("backend");
+
+  if (backendOffline) {
+    return {
+      title: "Backend is not connected",
+      message: "Start the backend server, then tap Retry.",
+    };
+  }
+
+  return {
+    title: "Connection needs attention",
+    message: "Please check the server connection and try again.",
+  };
+}
 
 export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const hasError = Boolean(error);
+  const pulse = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+  const friendlyError = useMemo(() => getFriendlyError(error), [error]);
+
+  useEffect(() => {
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    const spinLoop = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 2200, easing: Easing.linear, useNativeDriver: true }),
+    );
+    pulseLoop.start();
+    spinLoop.start();
+    return () => {
+      pulseLoop.stop();
+      spinLoop.stop();
+    };
+  }, [pulse, spin]);
+
+  const logoScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] });
+  const logoGlow = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.42] });
+  const spinRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 
   return (
     <View style={[styles.root, { backgroundColor: "#050607", paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}> 
@@ -17,9 +65,10 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
       <View style={styles.glowGold} />
       <View style={styles.glowSoft} />
 
-      <View style={[styles.logoWrap, { backgroundColor: colors.card, borderColor: colors.gold + "77" }]}> 
+      <Animated.View style={[styles.logoWrap, { backgroundColor: colors.card, borderColor: colors.gold + "77", opacity: hasError ? 0.92 : 1, transform: [{ scale: logoScale }] }]}> 
+        <Animated.View style={[styles.logoRing, { borderColor: colors.gold + "66", opacity: logoGlow, transform: [{ rotate: spinRotate }] }]} />
         <OfficialWalletLogo size={76} />
-      </View>
+      </Animated.View>
 
       <Text style={[styles.title, { color: colors.foreground }]}>Earn Daily</Text>
       <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Earn today, secure tomorrow</Text>
@@ -28,9 +77,9 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
       <View style={[styles.statusCard, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.10)" }]}> 
         {hasError ? (
           <>
-            <Feather name="alert-circle" size={26} color={colors.destructive} />
-            <Text style={[styles.errorTitle, { color: colors.foreground }]}>Setup needs attention</Text>
-            <Text style={[styles.errorText, { color: colors.mutedForeground }]}>{error}</Text>
+            <Feather name="wifi-off" size={26} color={colors.destructive} />
+            <Text style={[styles.errorTitle, { color: colors.foreground }]}>{friendlyError.title}</Text>
+            <Text style={[styles.errorText, { color: colors.mutedForeground }]}>{friendlyError.message}</Text>
             <Pressable onPress={onRetry} style={({ pressed }) => [styles.retryBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}> 
               <Feather name="refresh-cw" size={16} color="#fff" />
               <Text style={styles.retryText}>Retry</Text>
@@ -39,8 +88,22 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
         ) : (
           <>
             <ActivityIndicator size="large" color={colors.gold} />
-            <Text style={[styles.loadingText, { color: colors.foreground }]}>Preparing your reward account</Text>
-            <Text style={[styles.loadingSub, { color: colors.mutedForeground }]}>Initializing device ID, Firebase auth and wallet data...</Text>
+            <Text style={[styles.loadingText, { color: colors.foreground }]}>Starting Earn Daily</Text>
+            <Text style={[styles.loadingSub, { color: colors.mutedForeground }]}>Preparing your secure reward account...</Text>
+            <View style={styles.dotRow}>
+              {[0, 1, 2].map((index) => (
+                <Animated.View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor: colors.gold,
+                      opacity: pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: index === 0 ? [1, 0.55, 0.3] : index === 1 ? [0.45, 1, 0.45] : [0.3, 0.55, 1] }),
+                    },
+                  ]}
+                />
+              ))}
+            </View>
           </>
         )}
       </View>
@@ -53,12 +116,15 @@ const styles = StyleSheet.create({
   glowGold: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(242,201,76,0.16)", top: 80, right: -80 },
   glowSoft: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(255,255,255,0.06)", bottom: -80, left: -90 },
   logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, marginBottom: 18, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowColor: "#F2C94C", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
+  logoRing: { position: "absolute", width: 104, height: 104, borderRadius: 34, borderWidth: 2, borderLeftColor: "transparent", borderBottomColor: "transparent" },
   title: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: 0, textAlign: "center" },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 6, textAlign: "center" },
   credit: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: "center" },
   statusCard: { width: "100%", marginTop: 24, borderWidth: 1, borderRadius: 20, padding: 18, alignItems: "center", gap: 8 },
   loadingText: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, textAlign: "center", marginTop: 6 },
   loadingSub: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, textAlign: "center" },
+  dotRow: { flexDirection: "row", gap: 7, marginTop: 4 },
+  dot: { width: 6, height: 6, borderRadius: 6 },
   errorTitle: { fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 21, marginTop: 4, textAlign: "center" },
   errorText: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, textAlign: "center" },
   retryBtn: { marginTop: 8, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 8 },
