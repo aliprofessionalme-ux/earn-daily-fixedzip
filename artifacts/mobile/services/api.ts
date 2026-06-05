@@ -106,6 +106,10 @@ export interface UserDocument {
   suspiciousScore?: number;
   fraudFlags?: string[];
   manualReviewRequired: boolean;
+  vpnSuspected?: boolean;
+  riskLevel?: "low" | "medium" | "high";
+  pushEnabled?: boolean;
+  pushTokenUpdatedAt?: string | null;
   firstWithdrawalCompleted: boolean;
   createdAt: string;
   updatedAt: string;
@@ -220,6 +224,9 @@ export interface SupportTicket {
   issueType: string;
   message: string;
   status: "open" | "replied" | "closed";
+  adminReply?: string | null;
+  lastReplyAt?: string | null;
+  resolutionNotes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -325,6 +332,13 @@ interface InitUserPayload {
   deviceInfo: Record<string, unknown>;
 }
 
+export interface PushTokenPayload {
+  token: string;
+  platform?: string | null;
+  deviceName?: string | null;
+  appVersion?: string | null;
+}
+
 async function apiFetch<T>(path: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   if (!API_BASE_URL) {
     throw new Error("API URL is missing. Set EXPO_PUBLIC_API_BASE_URL or run the mobile app from the current Replit domain.");
@@ -372,6 +386,10 @@ export async function getUser(deviceId: string): Promise<UserDocument> {
 
 export async function updateUserProfile(deviceId: string, payload: { displayName: string; phone?: string | null }): Promise<{ success: boolean; user: UserDocument | null }> {
   return apiFetch(`/users/${encodeURIComponent(deviceId)}/profile`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function registerPushToken(deviceId: string, payload: PushTokenPayload): Promise<{ success: boolean; message: string }> {
+  return apiFetch(`/users/${encodeURIComponent(deviceId)}/push-token`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function getLeaderboard(limit = 50): Promise<LeaderboardUser[]> {

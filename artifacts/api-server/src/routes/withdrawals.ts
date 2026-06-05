@@ -18,6 +18,15 @@ function sendError(res: Response, err: unknown, fallback: string) {
   res.status(normalized.status).json(normalized.body);
 }
 
+function hasRiskWithdrawalLock(user: Record<string, unknown>): boolean {
+  const score = Number(user.suspiciousScore ?? 0);
+  return Boolean(user.isBanned)
+    || Boolean(user.manualReviewRequired)
+    || Boolean(user.vpnSuspected)
+    || String(user.riskLevel ?? "").toLowerCase() === "high"
+    || score >= Number(process.env["FRAUD_WITHDRAWAL_REVIEW_SCORE"] ?? 4);
+}
+
 router.get("/", requireFirebaseAuth, async (req: Request, res: Response) => {
   try {
     const db = getFirestoreDb();
@@ -48,6 +57,17 @@ router.post("/", requireFirebaseAuth, async (req: Request, res: Response) => {
       });
       return;
     }
+
+    const userSnap = await getFirestoreDb().collection("users").doc(deviceId).get();
+    const user = userSnap.data() ?? {};
+    if (hasRiskWithdrawalLock(user)) {
+      res.status(400).json({
+        error: "Withdrawal is locked. Account risk review is required before payout.",
+        code: "withdrawal_risk_review_required",
+      });
+      return;
+    }
+
     res.json(await submitWithdrawal(deviceId, parsed.data));
   } catch (err) {
     req.log.error({ err }, "Error submitting withdrawal");

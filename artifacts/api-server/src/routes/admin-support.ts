@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { getAdminCsrfToken, isAdminSession, validateAdminCsrfToken } from "../lib/admin-auth.js";
 import { getFirestoreDb, handleRouteError, nowTs, serializeDoc } from "../services/firebase-admin.js";
+import { notifySupportTicket } from "../services/pushNotifications.js";
 
 export const adminSupportPanelRouter = Router();
 export const adminSupportApiRouter = Router();
@@ -154,7 +155,8 @@ adminSupportApiRouter.post("/support/:ticketId/reply", async (req, res) => {
       return;
     }
 
-    const ref = await findSupportTicketRef(String(req.params.ticketId));
+    const ticketId = String(req.params.ticketId);
+    const ref = await findSupportTicketRef(ticketId);
     if (!ref) {
       res.status(404).json({ error: "Support ticket not found.", code: "support_ticket_not_found" });
       return;
@@ -169,9 +171,33 @@ adminSupportApiRouter.post("/support/:ticketId/reply", async (req, res) => {
       updatedAt: lastReplyAt,
     }, { merge: true });
 
+    await notifySupportTicket(ticketId, "reply", reply);
     formRedirect(res, { success: true, message: "Reply sent to user." });
   } catch (err) {
     sendError(res, err, "Unable to send support reply.");
+  }
+});
+
+adminSupportApiRouter.post("/support/:ticketId/close", async (req, res) => {
+  try {
+    const ticketId = String(req.params.ticketId);
+    const ref = await findSupportTicketRef(ticketId);
+    if (!ref) {
+      res.status(404).json({ error: "Support ticket not found.", code: "support_ticket_not_found" });
+      return;
+    }
+
+    const resolutionNotes = String(req.body?.resolutionNotes ?? "").trim();
+    await ref.set({
+      status: "closed",
+      resolutionNotes: resolutionNotes || null,
+      updatedAt: nowTs(),
+    }, { merge: true });
+
+    await notifySupportTicket(ticketId, "closed", resolutionNotes || "Your support ticket has been closed.");
+    formRedirect(res, { success: true, message: "Ticket closed." });
+  } catch (err) {
+    sendError(res, err, "Unable to close support ticket.");
   }
 });
 

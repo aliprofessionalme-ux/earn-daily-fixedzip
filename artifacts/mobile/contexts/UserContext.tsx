@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { getStoredValue, setStoredValue } from "@/services/localStore";
 import { getDeviceIdentity, setCanonicalDeviceId, type DeviceIdentity } from "@/services/deviceIdentity";
 import { initAnonymousFirebaseAuth } from "@/services/firebaseClient";
+import { registerDevicePushNotifications } from "@/services/pushNotifications";
 import {
   checkIn as apiCheckIn,
   getUser as apiGetUser,
@@ -94,6 +95,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setAuthMode(initialized.authMode ?? auth.authMode);
       setAuthVerified(Boolean(initialized.authVerified));
       setUser(initialized);
+      void registerDevicePushNotifications(canonicalIdentity.deviceId, canonicalIdentity.deviceInfo);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);

@@ -22,6 +22,8 @@ import {
   recordDailyEnergy,
   updateUserProfile,
 } from "../services/progress.js";
+import { registerPushToken, unregisterPushToken } from "../services/pushNotifications.js";
+import { applyFraudRiskSignals } from "../services/riskGuard.js";
 
 const router = Router();
 
@@ -48,6 +50,13 @@ const profileSchema = z.object({
 
 const referralApplySchema = z.object({
   referralCode: z.string().trim().min(4).max(64),
+});
+
+const pushTokenSchema = z.object({
+  token: z.string().trim().min(20).max(256),
+  platform: z.string().trim().max(32).optional().nullable(),
+  deviceName: z.string().trim().max(80).optional().nullable(),
+  appVersion: z.string().trim().max(40).optional().nullable(),
 });
 
 function sendError(res: import("express").Response, err: unknown, fallback: string) {
@@ -79,7 +88,20 @@ router.post("/init", async (req, res) => {
   try {
     const result = await initUser(parsed.data);
     await ensureReferralCode(result.user.deviceId);
-    res.json({ ...serializeUser(result.user), duplicateRestored: result.duplicateRestored, authWarning: result.authWarning ?? null });
+    try {
+      await applyFraudRiskSignals({
+        deviceId: result.user.deviceId,
+        installId: parsed.data.installId ?? result.user.installId ?? null,
+        deviceFingerprint: parsed.data.deviceFingerprint ?? result.user.deviceFingerprint ?? null,
+        authVerified: parsed.data.authVerified ?? result.user.authVerified,
+        deviceInfo: parsed.data.deviceInfo ?? result.user.deviceInfo ?? null,
+        request: req,
+      });
+    } catch (riskErr) {
+      req.log.warn({ err: riskErr, deviceId: result.user.deviceId }, "Fraud risk scan skipped");
+    }
+    const refreshed = await getUserDoc(result.user.deviceId);
+    res.json({ ...serializeUser(refreshed ?? result.user), duplicateRestored: result.duplicateRestored, authWarning: result.authWarning ?? null });
   } catch (err) {
     req.log.error({ err }, "Error initializing user");
     sendError(res, err, "Unable to initialize user.");
@@ -132,6 +154,32 @@ router.patch("/:deviceId/profile", requireFirebaseAuth, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error updating profile");
     sendError(res, err, "Unable to update profile.");
+  }
+});
+
+router.post("/:deviceId/push-token", requireFirebaseAuth, async (req, res) => {
+  const parsed = pushTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Valid Expo push token is required.", code: "invalid_push_token" });
+    return;
+  }
+
+  try {
+    const result = await registerPushToken(String(req.params.deviceId), parsed.data);
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (err) {
+    req.log.error({ err }, "Error registering push token");
+    sendError(res, err, "Unable to enable push notifications.");
+  }
+});
+
+router.delete("/:deviceId/push-token", requireFirebaseAuth, async (req, res) => {
+  const token = String(req.body?.token ?? req.query.token ?? "");
+  try {
+    res.json(await unregisterPushToken(String(req.params.deviceId), token));
+  } catch (err) {
+    req.log.error({ err }, "Error unregistering push token");
+    sendError(res, err, "Unable to disable push notifications.");
   }
 });
 
