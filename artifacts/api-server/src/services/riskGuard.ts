@@ -79,8 +79,7 @@ async function optionalIpIntel(ip: string): Promise<{ vpnSuspected: boolean; fla
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2500);
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
+    const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
 
     if (!response.ok) return { vpnSuspected: false, flags: ["ip_intel_failed"] };
     const json = await response.json().catch(() => null);
@@ -171,9 +170,11 @@ export async function applyFraudRiskSignals(input: RiskSignalInput) {
   const current = userSnap.data() ?? {};
   const assessment = await assessRisk(input);
   const existingFlags = Array.isArray(current.fraudFlags) ? current.fraudFlags.map(String) : [];
+  const newFlags = assessment.flags.filter((flag) => !existingFlags.includes(flag));
   const mergedFlags = Array.from(new Set([...existingFlags, ...assessment.flags]));
   const currentScore = Number(current.suspiciousScore ?? 0);
-  const nextScore = Math.max(currentScore, currentScore + assessment.scoreDelta);
+  const effectiveDelta = newFlags.length > 0 ? assessment.scoreDelta : 0;
+  const nextScore = Math.max(currentScore, currentScore + effectiveDelta);
   const riskLevel = nextScore >= HIGH_RISK_SCORE ? "high" : nextScore >= MANUAL_REVIEW_SCORE ? "medium" : "low";
 
   await userRef.set({
