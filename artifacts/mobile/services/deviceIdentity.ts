@@ -1,10 +1,20 @@
 import { Platform } from "react-native";
-import * as Application from "expo-application";
 import Constants from "expo-constants";
 import { getStoredValue, setStoredValue } from "./localStore";
 
 const INSTALL_ID_KEY = "engage_earn_install_id";
 const DEVICE_ID_KEY = "engage_earn_device_id";
+
+type ExpoApplicationModule = typeof import("expo-application");
+
+async function loadApplication(): Promise<ExpoApplicationModule | null> {
+  if (Platform.OS === "web") return null;
+  try {
+    return await import("expo-application");
+  } catch {
+    return null;
+  }
+}
 
 function randomId(prefix: string) {
   const nativeRandom = typeof globalThis.crypto?.randomUUID === "function" ? globalThis.crypto.randomUUID() : null;
@@ -25,6 +35,7 @@ export interface DeviceIdentity {
 }
 
 export async function getDeviceIdentity(): Promise<DeviceIdentity> {
+  const Application = await loadApplication();
   let installId = await getStoredValue(INSTALL_ID_KEY);
   if (!installId) {
     installId = randomId("install");
@@ -33,7 +44,7 @@ export async function getDeviceIdentity(): Promise<DeviceIdentity> {
 
   let deviceId = await getStoredValue(DEVICE_ID_KEY);
   if (!deviceId) {
-    const androidId = Platform.OS === "android" ? Application.getAndroidId() : null;
+    const androidId = Platform.OS === "android" && Application ? Application.getAndroidId() : null;
     deviceId = androidId ? `android_${androidId}` : randomId("device");
     await setStoredValue(DEVICE_ID_KEY, deviceId);
   }
@@ -44,8 +55,8 @@ export async function getDeviceIdentity(): Promise<DeviceIdentity> {
     model: readPlatformConstant("Model") ?? readPlatformConstant("model") ?? "unknown",
     manufacturer: readPlatformConstant("Manufacturer") ?? readPlatformConstant("manufacturer") ?? "unknown",
     brand: readPlatformConstant("Brand") ?? readPlatformConstant("brand") ?? "unknown",
-    appVersion: Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "unknown",
-    buildVersion: Application.nativeBuildVersion ?? "unknown",
+    appVersion: Application?.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "unknown",
+    buildVersion: Application?.nativeBuildVersion ?? "unknown",
     appOwnership: Constants.appOwnership ?? "unknown",
   };
 
@@ -54,7 +65,6 @@ export async function getDeviceIdentity(): Promise<DeviceIdentity> {
 
   return { deviceId, installId, deviceFingerprint, deviceInfo };
 }
-
 
 export async function setCanonicalDeviceId(deviceId: string): Promise<void> {
   await setStoredValue(DEVICE_ID_KEY, deviceId);
