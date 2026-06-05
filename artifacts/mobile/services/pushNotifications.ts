@@ -1,7 +1,9 @@
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { registerPushToken } from "./api";
+
+type ExpoNotificationsModule = typeof import("expo-notifications");
+type NotificationBehavior = import("expo-notifications").NotificationBehavior;
 
 type ConstantsWithEas = typeof Constants & {
   easConfig?: { projectId?: string };
@@ -12,22 +14,34 @@ type ConstantsWithEas = typeof Constants & {
 };
 
 const constantsAny = Constants as ConstantsWithEas;
+let notificationHandlerConfigured = false;
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  } as Notifications.NotificationBehavior),
-});
+async function loadNotifications(): Promise<ExpoNotificationsModule | null> {
+  if (Platform.OS === "web") return null;
+  return import("expo-notifications");
+}
+
+function configureNotificationHandler(Notifications: ExpoNotificationsModule) {
+  if (notificationHandlerConfigured) return;
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    } as NotificationBehavior),
+  });
+
+  notificationHandlerConfigured = true;
+}
 
 function getProjectId(): string | undefined {
   return constantsAny.expoConfig?.extra?.eas?.projectId ?? constantsAny.easConfig?.projectId;
 }
 
-async function ensureAndroidChannel() {
+async function ensureAndroidChannel(Notifications: ExpoNotificationsModule) {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync("default", {
     name: "Earn Daily updates",
@@ -38,10 +52,12 @@ async function ensureAndroidChannel() {
 }
 
 export async function registerDevicePushNotifications(deviceId: string, deviceInfo?: Record<string, unknown> | null): Promise<string | null> {
-  if (Platform.OS === "web") return null;
+  const Notifications = await loadNotifications();
+  if (!Notifications) return null;
 
   try {
-    await ensureAndroidChannel();
+    configureNotificationHandler(Notifications);
+    await ensureAndroidChannel(Notifications);
 
     const existing = await Notifications.getPermissionsAsync();
     let finalStatus = existing.status;
