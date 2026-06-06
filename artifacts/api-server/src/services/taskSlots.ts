@@ -215,10 +215,8 @@ export async function reserveProviderTaskSlot(params: {
   const rewardDedupeRef = db.collection("webhookDedupe").doc(reservationId);
 
   return db.runTransaction(async (tx) => {
-    const [rewardDedupeSnap, reservationSnap] = await Promise.all([
-      tx.get(rewardDedupeRef),
-      tx.get(reservationRef),
-    ]);
+    const rewardDedupeSnap = await tx.get(rewardDedupeRef);
+    const reservationSnap = await tx.get(reservationRef);
 
     if (rewardDedupeSnap.exists) {
       return {
@@ -347,12 +345,4 @@ export async function releaseProviderTaskSlotReservation(reservationId: string, 
       updatedAt: nowTs(),
     }, { merge: true });
   });
-}
-
-export function taskSlotExhaustedResponse(status: TaskSlotStatus) {
-  return {
-    error: `Daily task limit reached. Unlock 1 more task with ${status.energyPerExtraSlot} Energy.`,
-    code: "daily_task_slots_exhausted",
-    taskSlots: status,
-  };
 }
