@@ -1,5 +1,6 @@
 import { Router, type Request } from "express";
 import { getAppSettings, handleRouteError } from "../services/firebase-admin.js";
+import { withTaskSlotPolicy } from "../services/taskSlots.js";
 
 const router = Router();
 
@@ -179,7 +180,7 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
 // Public endpoint: returns app settings plus safe launch status (no secrets)
 router.get("/", async (req, res) => {
   try {
-    const settings = await getAppSettings();
+    const settings = withTaskSlotPolicy(await getAppSettings());
     const providerCallbackUrls = buildProviderCallbackUrls(req);
     res.json({
       ...settings,
