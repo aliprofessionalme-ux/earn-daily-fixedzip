@@ -1,4 +1,3 @@
-import admin from "firebase-admin";
 import {
   getAppSettings,
   getFirestoreDb,
@@ -233,13 +232,22 @@ export async function reserveProviderTaskSlot(params: {
 
     if (reservationSnap.exists) {
       const previous = reservationSnap.data() ?? {};
-      if (previous.status === "reserved" || previous.status === "credited") {
+      if (previous.status === "credited") {
         return {
           reserved: false,
           duplicate: true,
           reservationId,
           taskSlots: null,
           message: "Duplicate task slot reservation ignored.",
+        };
+      }
+      if (previous.status === "reserved") {
+        return {
+          reserved: false,
+          duplicate: false,
+          reservationId,
+          taskSlots: null,
+          message: "Existing task slot reservation reused.",
         };
       }
     }
