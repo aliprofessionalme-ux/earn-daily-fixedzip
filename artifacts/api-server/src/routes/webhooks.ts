@@ -272,8 +272,10 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
         } catch (progressErr) {
           req.log.error({ err: progressErr, provider, deviceId: parsed.deviceId }, "Reward credited but daily task progress update failed");
         }
+      } else if (reservationId && result.duplicate) {
+        await markProviderTaskSlotCredited(reservationId);
       } else if (reservationId) {
-        await safeReleaseReservation(req, reservationId, result.duplicate ? "Duplicate reward ignored" : "Reward did not credit coins");
+        await safeReleaseReservation(req, reservationId, "Reward did not credit coins");
       }
 
       res.json({ ...result, taskSlots: taskSlot?.taskSlots ?? null });
