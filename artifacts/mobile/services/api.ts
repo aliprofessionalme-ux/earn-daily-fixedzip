@@ -188,6 +188,21 @@ export interface WithdrawalEligibility {
   currentDailyStreak: number;
 }
 
+export interface TaskSlotStatus {
+  resetDate: string;
+  freeTaskSlots: number;
+  energyPerExtraSlot: number;
+  maxExtraSlots: number;
+  usedToday: number;
+  extraSlotsUnlocked: number;
+  totalSlots: number;
+  slotsRemaining: number;
+  locked: boolean;
+  canUnlock: boolean;
+  energyBalance: number;
+  nextUnlockEnergyNeeded: number;
+}
+
 export type TransactionType =
   | "checkin"
   | "spin"
@@ -312,6 +327,7 @@ export interface AppSettings {
   dailyScratchLimit?: number;
   freeTaskSlots: number;
   energyPerExtraSlot: number;
+  maxExtraSlots: number;
   checkInEnergy: number;
   spinEnergyReward: number;
   scratchEnergyReward: number;
@@ -456,7 +472,11 @@ export async function recordUnityInterstitialShown(deviceId: string, placementId
   });
 }
 
-export async function unlockExtraTaskSlot(deviceId: string): Promise<{ success: boolean; message: string; energyAfter: number; extraSlots: number }> {
+export async function getTaskSlotStatus(deviceId: string): Promise<TaskSlotStatus> {
+  return apiFetch<TaskSlotStatus>(`/users/${encodeURIComponent(deviceId)}/task-slots/status`);
+}
+
+export async function unlockExtraTaskSlot(deviceId: string): Promise<{ success: boolean; message: string; energyAfter: number; extraSlots: number; taskSlots: TaskSlotStatus }> {
   return apiFetch(`/users/${encodeURIComponent(deviceId)}/task-slots/unlock`, { method: "POST", body: JSON.stringify({}) });
 }
 
