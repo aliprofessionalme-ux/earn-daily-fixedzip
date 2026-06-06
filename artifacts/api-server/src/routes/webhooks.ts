@@ -7,6 +7,12 @@ import {
   storeManualReviewOfferEvent,
 } from "../services/firebase-admin.js";
 import { recordCompletedTask } from "../services/progress.js";
+import {
+  markProviderTaskSlotCredited,
+  releaseProviderTaskSlotReservation,
+  reserveProviderTaskSlot,
+  type TaskSlotReservationResult,
+} from "../services/taskSlots.js";
 
 const router = Router();
 
@@ -159,12 +165,25 @@ function parseWebhook(req: Request): ParsedWebhook {
 }
 
 function coinsOverrideFor(parsed: ParsedWebhook): number | null | undefined {
-  // If USD payout is present, calculate coins from our 5000 coins/USD rule instead of provider point values.
+  // If USD payout is present, calculate coins from our coins/USD rule instead of provider point values.
   return parsed.payoutUSD && parsed.payoutUSD > 0 ? null : parsed.coinsOverride;
+}
+
+function hasRewardAmount(parsed: ParsedWebhook): boolean {
+  return Boolean((parsed.payoutUSD && parsed.payoutUSD > 0) || (parsed.coinsOverride && parsed.coinsOverride > 0));
 }
 
 function isReversalStatus(status: string): boolean {
   return ["rejected", "reject", "chargeback", "reversal", "reverse", "reversed", "fraud", "cancelled", "canceled"].includes(status);
+}
+
+async function safeReleaseReservation(req: Request, reservationId: string | null, reason: string) {
+  if (!reservationId) return;
+  try {
+    await releaseProviderTaskSlotReservation(reservationId, reason);
+  } catch (releaseErr) {
+    req.log.warn({ err: releaseErr, reservationId }, "Unable to release task slot reservation");
+  }
 }
 
 async function handleProviderWebhook(req: Request, res: Response, provider: Provider) {
@@ -221,21 +240,47 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
       return;
     }
 
-    const result = await creditOfferwallReward({
-      deviceId: parsed.deviceId,
-      provider,
-      externalTransactionId: parsed.externalTransactionId,
-      payoutUSD: parsed.payoutUSD,
-      coinsOverride: coinsOverrideFor(parsed),
-      offerName: parsed.offerName,
-      rawPayload: parsed.rawPayload,
-      status: "completed",
-    });
-    if (result.success && !result.duplicate) {
+    let taskSlot: TaskSlotReservationResult | null = null;
+    let reservationId: string | null = null;
+
+    try {
+      if (hasRewardAmount(parsed)) {
+        taskSlot = await reserveProviderTaskSlot({
+          deviceId: parsed.deviceId,
+          provider,
+          externalTransactionId: parsed.externalTransactionId,
+        });
+        if (!taskSlot.duplicate) reservationId = taskSlot.reservationId;
+      }
+
+      const result = await creditOfferwallReward({
+        deviceId: parsed.deviceId,
+        provider,
+        externalTransactionId: parsed.externalTransactionId,
+        payoutUSD: parsed.payoutUSD,
+        coinsOverride: coinsOverrideFor(parsed),
+        offerName: parsed.offerName,
+        rawPayload: parsed.rawPayload,
+        status: "completed",
+      });
+
       const coinsCalculated = Number((result as { coinsCalculated?: number }).coinsCalculated ?? 0);
-      await recordCompletedTask(parsed.deviceId, coinsCalculated);
+      if (result.success && !result.duplicate && coinsCalculated > 0) {
+        if (reservationId) await markProviderTaskSlotCredited(reservationId);
+        try {
+          await recordCompletedTask(parsed.deviceId, coinsCalculated);
+        } catch (progressErr) {
+          req.log.error({ err: progressErr, provider, deviceId: parsed.deviceId }, "Reward credited but daily task progress update failed");
+        }
+      } else if (reservationId) {
+        await safeReleaseReservation(req, reservationId, result.duplicate ? "Duplicate reward ignored" : "Reward did not credit coins");
+      }
+
+      res.json({ ...result, taskSlots: taskSlot?.taskSlots ?? null });
+    } catch (err) {
+      await safeReleaseReservation(req, reservationId, "Reward credit failed after task slot reservation");
+      throw err;
     }
-    res.json(result);
   } catch (err) {
     req.log.error({ err, provider, deviceId: parsed.deviceId }, `Error processing ${provider} webhook`);
     sendError(res, err, `Unable to process ${provider} reward.`);
