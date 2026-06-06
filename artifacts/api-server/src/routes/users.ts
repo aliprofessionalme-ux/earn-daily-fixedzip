@@ -11,8 +11,8 @@ import {
   initUser,
   serializeDoc,
   serializeUser,
-  unlockExtraTaskSlot,
 } from "../services/firebase-admin.js";
+import { getTaskSlotStatus, unlockExtraTaskSlot } from "../services/taskSlots.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import {
   applyReferralCode,
@@ -366,6 +366,15 @@ router.get("/:deviceId/offer-events", requireFirebaseAuth, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error fetching offer events");
     sendError(res, err, "Unable to load offer events.");
+  }
+});
+
+router.get("/:deviceId/task-slots/status", requireFirebaseAuth, async (req, res) => {
+  try {
+    res.json(await getTaskSlotStatus(String(req.params.deviceId)));
+  } catch (err) {
+    req.log.error({ err }, "Error fetching task slot status");
+    sendError(res, err, "Unable to load task slots.");
   }
 });
 
