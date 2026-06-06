@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -17,7 +17,7 @@ import { WebView } from "react-native-webview";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { SectionTitle } from "@/components/SectionTitle";
-import { getAppSettings, type ProviderLaunchItem, type ProviderLaunchStatus } from "@/services/api";
+import { getAppSettings, getTaskSlotStatus, type ProviderLaunchItem, type ProviderLaunchStatus, type TaskSlotStatus } from "@/services/api";
 
 type CategoryId = "game_tasks" | "survey_rewards" | "app_install_tasks" | "high_reward_offers" | "partner_tasks" | "watch_ads";
 type OfferFilter = "all" | "open" | "fast" | "high" | "games" | "surveys" | "apps" | "energy" | "new";
@@ -146,12 +146,15 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
 export default function OfferwallScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { deviceId } = useUser();
+  const { deviceId, user, unlockExtraTaskSlot } = useUser();
   const [activeWebviewUrl, setActiveWebviewUrl] = useState<string | null>(null);
   const [webviewLoading, setWebviewLoading] = useState(true);
   const [webviewError, setWebviewError] = useState(false);
   const [providerLaunch, setProviderLaunch] = useState<ProviderLaunchStatus | null>(null);
   const [activeFilter, setActiveFilter] = useState<OfferFilter>("all");
+  const [taskSlots, setTaskSlots] = useState<TaskSlotStatus | null>(null);
+  const [taskSlotMessage, setTaskSlotMessage] = useState<string | null>(null);
+  const [unlockingSlot, setUnlockingSlot] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +168,22 @@ export default function OfferwallScreen() {
     return () => { cancelled = true; };
   }, []);
 
+  const refreshTaskSlots = useCallback(async () => {
+    if (!deviceId) return;
+    try {
+      const status = await getTaskSlotStatus(deviceId);
+      setTaskSlots(status);
+      setTaskSlotMessage(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load task slots.";
+      setTaskSlotMessage(message);
+    }
+  }, [deviceId]);
+
+  useEffect(() => {
+    void refreshTaskSlots();
+  }, [refreshTaskSlots, user?.energyBalance, user?.extraSlotsUnlocked, user?.lastTaskSlotResetDate, user?.taskSlotsUsedToday]);
+
   const categories = useMemo(() => getCategories(providerLaunch), [providerLaunch]);
   const visibleCategories = useMemo(
     () => categories.filter((cat) => activeFilter === "all" || cat.filters.includes(activeFilter)),
@@ -172,8 +191,29 @@ export default function OfferwallScreen() {
   );
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
+  const handleUnlockSlot = async () => {
+    if (unlockingSlot) return;
+    setUnlockingSlot(true);
+    setTaskSlotMessage(null);
+    try {
+      const result = await unlockExtraTaskSlot();
+      setTaskSlots(result.taskSlots);
+      setTaskSlotMessage(result.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to unlock task slot.";
+      setTaskSlotMessage(message);
+    } finally {
+      setUnlockingSlot(false);
+    }
+  };
+
   const openOfferwall = (category: EarningCategory) => {
     if (category.status !== "available") return;
+
+    if (category.rewardType === "pending_coins" && taskSlots?.locked) {
+      setTaskSlotMessage(`Daily task slots finished. Unlock 1 more task with ${taskSlots.energyPerExtraSlot} Energy.`);
+      return;
+    }
 
     const url = resolveLaunchUrl(category.launchItem, deviceId ?? "");
     if (!url) return;
@@ -242,6 +282,14 @@ export default function OfferwallScreen() {
     );
   }
 
+  const progressPercent = taskSlots ? Math.min(100, Math.round((taskSlots.usedToday / Math.max(1, taskSlots.totalSlots)) * 100)) : 0;
+  const unlockDisabled = !taskSlots?.locked || !taskSlots.canUnlock || unlockingSlot;
+  const unlockLabel = !taskSlots?.locked
+    ? "Slots available"
+    : taskSlots.canUnlock
+      ? `Unlock 1 Task - ${taskSlots.energyPerExtraSlot} Energy`
+      : `Need ${taskSlots.nextUnlockEnergyNeeded} Energy`;
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <ScrollView contentContainerStyle={{ paddingTop: topPad + 10, paddingBottom: Platform.OS === "web" ? 34 : 112 }} showsVerticalScrollIndicator={false}>
@@ -270,40 +318,88 @@ export default function OfferwallScreen() {
           })}
         </ScrollView>
 
+        <View style={[styles.slotCard, { backgroundColor: colors.card, borderColor: taskSlots?.locked ? colors.gold : colors.border }]}> 
+          <View style={styles.slotTopRow}>
+            <View style={styles.slotTitleWrap}>
+              <View style={[styles.slotIcon, { backgroundColor: colors.gold + "22" }]}> 
+                <Feather name={taskSlots?.locked ? "lock" : "unlock"} size={16} color={colors.gold} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.slotTitle, { color: colors.foreground }]}>Daily Task Slots</Text>
+                <Text style={[styles.slotSub, { color: colors.mutedForeground }]}>3 free tasks daily. Extra tasks unlock with Energy.</Text>
+              </View>
+            </View>
+            <Text style={[styles.slotCounter, { color: colors.gold }]}>{taskSlots ? `${taskSlots.slotsRemaining}/${taskSlots.totalSlots}` : "--"}</Text>
+          </View>
+          <View style={[styles.progressTrack, { backgroundColor: colors.border }]}> 
+            <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: taskSlots?.locked ? colors.gold : "#10B981" }]} />
+          </View>
+          <View style={styles.slotStatsRow}>
+            <View style={styles.slotStat}>
+              <Text style={[styles.slotStatValue, { color: colors.foreground }]}>{taskSlots?.usedToday ?? user?.taskSlotsUsedToday ?? 0}</Text>
+              <Text style={[styles.slotStatLabel, { color: colors.mutedForeground }]}>Used</Text>
+            </View>
+            <View style={styles.slotStat}>
+              <Text style={[styles.slotStatValue, { color: colors.foreground }]}>{taskSlots?.extraSlotsUnlocked ?? user?.extraSlotsUnlocked ?? 0}</Text>
+              <Text style={[styles.slotStatLabel, { color: colors.mutedForeground }]}>Extra</Text>
+            </View>
+            <View style={styles.slotStat}>
+              <Text style={[styles.slotStatValue, { color: colors.foreground }]}>{taskSlots?.energyBalance ?? user?.energyBalance ?? 0}</Text>
+              <Text style={[styles.slotStatLabel, { color: colors.mutedForeground }]}>Energy</Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={handleUnlockSlot}
+            disabled={unlockDisabled}
+            style={[styles.unlockBtn, { backgroundColor: unlockDisabled ? colors.border : colors.gold, opacity: unlockingSlot ? 0.7 : 1 }]}
+          >
+            {unlockingSlot ? <ActivityIndicator size="small" color="#120900" /> : <Feather name="zap" size={14} color={unlockDisabled ? colors.mutedForeground : "#120900"} />}
+            <Text style={[styles.unlockBtnText, { color: unlockDisabled ? colors.mutedForeground : "#120900" }]} numberOfLines={1}>{unlockingSlot ? "Unlocking..." : unlockLabel}</Text>
+          </Pressable>
+          {taskSlotMessage ? <Text style={[styles.slotMessage, { color: taskSlotMessage.toLowerCase().includes("unable") || taskSlotMessage.toLowerCase().includes("need") ? colors.destructive : colors.mutedForeground }]}>{taskSlotMessage}</Text> : null}
+        </View>
+
         <View style={styles.cardsContainer}>
           {visibleCategories.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
               <Feather name="filter" size={32} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No tasks in this filter yet</Text>
             </View>
-          ) : visibleCategories.map((cat) => (
-            <Pressable
-              key={cat.id}
-              onPress={() => openOfferwall(cat)}
-              disabled={cat.status === "coming_soon"}
-              style={({ pressed }) => ({ opacity: pressed ? 0.9 : cat.status === "coming_soon" ? 0.58 : 1 })}
-            >
-              <LinearGradient colors={cat.gradient} style={[styles.card, { borderColor: cat.gradient[0] + "40" }]}> 
-                <View style={styles.cardTop}>
-                  <View style={styles.cardIconWrap}>
-                    <Feather name={cat.icon} size={19} color="#fff" />
+          ) : visibleCategories.map((cat) => {
+            const lockedBySlot = cat.rewardType === "pending_coins" && Boolean(taskSlots?.locked);
+            const disabled = cat.status === "coming_soon" || lockedBySlot;
+            const statusLabel = cat.status === "coming_soon" ? "Coming Soon" : lockedBySlot ? "Locked" : "Open";
+            const statusColor = cat.status === "coming_soon" ? "#D1D5DB" : lockedBySlot ? "#FBBF24" : "#6EE7B7";
+            const statusBg = cat.status === "coming_soon" ? "rgba(156,163,175,0.2)" : lockedBySlot ? "rgba(251,191,36,0.2)" : "rgba(16,185,129,0.2)";
+            return (
+              <Pressable
+                key={cat.id}
+                onPress={() => openOfferwall(cat)}
+                disabled={disabled}
+                style={({ pressed }) => ({ opacity: pressed ? 0.9 : disabled ? 0.58 : 1 })}
+              >
+                <LinearGradient colors={cat.gradient} style={[styles.card, { borderColor: cat.gradient[0] + "40" }]}> 
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardIconWrap}>
+                      <Feather name={lockedBySlot ? "lock" : cat.icon} size={19} color="#fff" />
+                    </View>
+                    <View style={styles.cardTextWrap}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{cat.title}</Text>
+                      <Text style={styles.cardSubtitle} numberOfLines={2}>{lockedBySlot ? `Unlock 1 more task with ${taskSlots?.energyPerExtraSlot ?? 10} Energy.` : cat.subtitle}</Text>
+                    </View>
                   </View>
-                  <View style={styles.cardTextWrap}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>{cat.title}</Text>
-                    <Text style={styles.cardSubtitle} numberOfLines={2}>{cat.subtitle}</Text>
+                  <View style={styles.cardBottom}>
+                    <View style={[styles.badge, { backgroundColor: "rgba(255,255,255,0.15)" }]}> 
+                      <Text style={styles.badgeText}>{cat.rewardType === "pending_coins" ? "Pending Coins" : "Energy"}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}> 
+                      <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.cardBottom}>
-                  <View style={[styles.badge, { backgroundColor: "rgba(255,255,255,0.15)" }]}> 
-                    <Text style={styles.badgeText}>{cat.rewardType === "pending_coins" ? "Pending Coins" : "Energy"}</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: cat.status === "available" ? "rgba(16,185,129,0.2)" : "rgba(156,163,175,0.2)" }]}> 
-                    <Text style={[styles.statusText, { color: cat.status === "available" ? "#6EE7B7" : "#D1D5DB" }]}>{cat.status === "available" ? "Open" : "Coming Soon"}</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          ))}
+                </LinearGradient>
+              </Pressable>
+            );
+          })}
         </View>
 
         <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
@@ -329,6 +425,22 @@ const styles = StyleSheet.create({
   filterRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   filterChip: { minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   filterText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
+  slotCard: { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, borderWidth: 1, padding: 12, gap: 10 },
+  slotTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  slotTitleWrap: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  slotIcon: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  slotTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
+  slotSub: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 1 },
+  slotCounter: { fontFamily: "Inter_800ExtraBold", fontSize: 18, lineHeight: 22 },
+  progressTrack: { height: 7, borderRadius: 999, overflow: "hidden" },
+  progressFill: { height: 7, borderRadius: 999 },
+  slotStatsRow: { flexDirection: "row", gap: 8 },
+  slotStat: { flex: 1, minHeight: 48, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.05)", alignItems: "center", justifyContent: "center", paddingVertical: 6 },
+  slotStatValue: { fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 18 },
+  slotStatLabel: { fontFamily: "Inter_600SemiBold", fontSize: 10, lineHeight: 13, marginTop: 2 },
+  unlockBtn: { minHeight: 38, borderRadius: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  unlockBtnText: { flexShrink: 1, fontFamily: "Inter_800ExtraBold", fontSize: 12, lineHeight: 16, textAlign: "center" },
+  slotMessage: { fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 15, textAlign: "center" },
   cardsContainer: { paddingHorizontal: 16, gap: 10 },
   card: { borderRadius: 15, borderWidth: 1, padding: 12, gap: 9 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
