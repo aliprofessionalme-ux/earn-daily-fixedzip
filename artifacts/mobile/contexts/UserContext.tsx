@@ -16,6 +16,7 @@ import {
   updateUserProfile as apiUpdateUserProfile,
   setApiFirebaseToken,
   type RewardResult,
+  type TaskSlotStatus,
   type UserDocument,
 } from "@/services/api";
 
@@ -42,7 +43,7 @@ interface UserContextType {
   submitWithdrawal: (payload: { paymentMethod: "Easypaisa" | "JazzCash"; accountNumber: string; accountTitle: string; amountPKR: number }) => Promise<{ success: boolean; message: string; withdrawalId: string }>;
   recordUnityRewardedComplete: (placementId?: string) => Promise<RewardResult>;
   recordUnityInterstitialShown: (placementId?: string) => Promise<{ success: boolean; message: string }>;
-  unlockExtraTaskSlot: () => Promise<{ success: boolean; message: string; energyAfter: number; extraSlots: number }>;
+  unlockExtraTaskSlot: () => Promise<{ success: boolean; message: string; energyAfter: number; extraSlots: number; taskSlots: TaskSlotStatus }>;
 }
 
 const UserContext = createContext<UserContextType | null>(null);
