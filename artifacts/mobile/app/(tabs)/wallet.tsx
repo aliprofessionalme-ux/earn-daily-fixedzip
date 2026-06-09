@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { getAppSettings, getWithdrawals, type WithdrawalDocument } from "@/services/api";
 import { CompactStatCard } from "@/components/CompactStatCard";
@@ -94,7 +95,7 @@ function WithdrawalTimeline({ item }: { item: WithdrawalDocument }) {
   const activeIndex = timelineActiveIndex(item.status);
 
   return (
-    <View style={styles.timeline}> 
+    <View style={[styles.timeline, { borderTopColor: colors.border }]}> 
       {steps.map((step, index) => {
         const done = index < activeIndex;
         const current = index === activeIndex;
@@ -123,6 +124,7 @@ function WithdrawalTimeline({ item }: { item: WithdrawalDocument }) {
 
 export default function WalletScreen() {
   const colors = useColors();
+  const { themeKey } = useTheme();
   const insets = useSafeAreaInsets();
   const { deviceId, user, submitWithdrawal } = useUser();
 
@@ -139,6 +141,28 @@ export default function WalletScreen() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [minWithdrawal, setMinWithdrawal] = useState<number>(0);
   const [coinRate, setCoinRate] = useState({ coins: 1000, pkr: 20 });
+
+  const isDaylight = themeKey === "daylight";
+  const headerGradient = useMemo(
+    () => isDaylight ? ["#FFFDF8", "#EAF8FF"] as [string, string] : ["#064E3B", "#0D0D1A"] as [string, string],
+    [isDaylight],
+  );
+  const statCardGradients = useMemo(
+    () => isDaylight
+      ? {
+          confirmed: ["#EAFBF1", "#FFFFFF"] as [string, string],
+          pending: ["#FFF1E8", "#FFFFFF"] as [string, string],
+          energy: ["#FFF8DB", "#FFFFFF"] as [string, string],
+        }
+      : {
+          confirmed: ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"] as [string, string],
+          pending: ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"] as [string, string],
+          energy: ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"] as [string, string],
+        },
+    [isDaylight],
+  );
+  const activeButtonText = isDaylight ? "#05131F" : "#FFFFFF";
+  const submitGradient = isDaylight ? [colors.primary, "#0284C7"] as [string, string] : [colors.primary, colors.purpleDark] as [string, string];
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const confirmed = user?.confirmedCoinsBalance ?? user?.coinsBalance ?? 0;
@@ -213,19 +237,19 @@ export default function WalletScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <LinearGradient colors={["#064E3B", "#0D0D1A"]} style={[styles.header, { paddingTop: topPad + 10 }]}> 
+      <LinearGradient colors={headerGradient} style={[styles.header, { paddingTop: topPad + 10 }, isDaylight && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}> 
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Wallet</Text>
         <View style={styles.statsRow}>
-          <CompactStatCard icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} sub={formatPKR(pkr)} colors={["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"]} accent={colors.green} />
-          <CompactStatCard icon="clock" label="Pending" value={pending.toLocaleString()} sub="Not withdrawable" colors={["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"]} accent={colors.orange} />
-          <CompactStatCard icon="zap" label="Energy" value={energy.toLocaleString()} sub="App benefits" colors={["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"]} accent={colors.gold} />
+          <CompactStatCard icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} sub={formatPKR(pkr)} colors={statCardGradients.confirmed} accent={colors.green} />
+          <CompactStatCard icon="clock" label="Pending" value={pending.toLocaleString()} sub="Not withdrawable" colors={statCardGradients.pending} accent={colors.orange} />
+          <CompactStatCard icon="zap" label="Energy" value={energy.toLocaleString()} sub="App benefits" colors={statCardGradients.energy} accent={colors.gold} />
         </View>
       </LinearGradient>
 
       <View style={[styles.tabRow, { backgroundColor: colors.card, borderColor: colors.border }]}> 
         {(["withdraw", "history"] as const).map((tab) => (
           <Pressable key={tab} onPress={() => { setActiveTab(tab); setMessage(null); }} style={[styles.tabBtn, activeTab === tab && { backgroundColor: colors.primary }]}> 
-            <Text style={[styles.tabBtnText, { color: activeTab === tab ? "#fff" : colors.mutedForeground }]}>{tab === "withdraw" ? "Withdraw" : "History"}</Text>
+            <Text style={[styles.tabBtnText, { color: activeTab === tab ? activeButtonText : colors.mutedForeground }]}>{tab === "withdraw" ? "Withdraw" : "History"}</Text>
           </Pressable>
         ))}
       </View>
@@ -253,7 +277,7 @@ export default function WalletScreen() {
           <View style={styles.methodRow}>
             {PAYMENT_METHODS.map((m) => (
               <Pressable key={m} onPress={() => setPaymentMethod(m)} style={[styles.methodBtn, { backgroundColor: paymentMethod === m ? colors.primary : colors.card, borderColor: paymentMethod === m ? colors.primary : colors.border }]}> 
-                <Text style={[styles.methodBtnText, { color: paymentMethod === m ? "#fff" : colors.mutedForeground }]}>{m}</Text>
+                <Text style={[styles.methodBtnText, { color: paymentMethod === m ? activeButtonText : colors.mutedForeground }]}>{m}</Text>
               </Pressable>
             ))}
           </View>
@@ -270,7 +294,7 @@ export default function WalletScreen() {
           {message ? <Text style={[styles.msgText, { color: message.ok ? colors.green : colors.destructive }]}>{message.text}</Text> : null}
 
           <Pressable disabled={submitting} onPress={handleSubmit} style={({ pressed }) => [{ opacity: pressed ? 0.86 : submitting ? 0.65 : 1 }]}> 
-            <LinearGradient colors={[colors.primary, colors.purpleDark]} style={styles.submitBtn}> 
+            <LinearGradient colors={submitGradient} style={styles.submitBtn}> 
               {submitting ? <ActivityIndicator color="#fff" /> : <Feather name="send" size={18} color="#fff" />}
               <Text style={styles.submitBtnText}>{submitting ? "Submitting..." : "Submit Withdrawal"}</Text>
             </LinearGradient>

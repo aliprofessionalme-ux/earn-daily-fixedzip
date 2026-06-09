@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import colors from "@/constants/colors";
 import { getStoredValue, setStoredValue } from "@/services/localStore";
 
-export type ThemeKey = "primary" | "midnightGold";
+export type ThemeKey = "primary" | "midnightGold" | "daylight";
 type Palette = typeof colors.light;
 
 const THEME_STORAGE_KEY = "earn_daily_theme_key";
@@ -26,6 +26,12 @@ export const themeOptions: Array<{
     description: "Official black and gold wallet look",
     swatches: [colors.midnightGold.background, colors.midnightGold.gold, colors.midnightGold.foreground],
   },
+  {
+    key: "daylight",
+    label: "Daylight",
+    description: "Clean white theme with sky and gold accents",
+    swatches: [colors.daylight.background, colors.daylight.primary, colors.daylight.gold],
+  },
 ];
 
 interface ThemeContextType {
@@ -38,11 +44,13 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 function isThemeKey(value: string | null): value is ThemeKey {
-  return value === "primary" || value === "midnightGold";
+  return value === "primary" || value === "midnightGold" || value === "daylight";
 }
 
 function getPalette(themeKey: ThemeKey): Palette {
-  return themeKey === "midnightGold" ? colors.midnightGold : colors.light;
+  if (themeKey === "midnightGold") return colors.midnightGold;
+  if (themeKey === "daylight") return colors.daylight;
+  return colors.light;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
