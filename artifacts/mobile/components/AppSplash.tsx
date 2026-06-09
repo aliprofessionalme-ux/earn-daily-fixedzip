@@ -6,6 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OfficialWalletLogo } from "@/components/OfficialWalletLogo";
 import { useColors } from "@/hooks/useColors";
 
+const splashText = "#FFF9EA";
+const splashMuted = "#B8B0A0";
+const splashGold = "#F2C94C";
+
 function getFriendlyError(error?: string | null) {
   const text = String(error ?? "").toLowerCase();
   const backendOffline =
@@ -65,21 +69,21 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
       <View style={styles.glowGold} />
       <View style={styles.glowSoft} />
 
-      <Animated.View style={[styles.logoWrap, { backgroundColor: colors.card, borderColor: colors.gold + "77", opacity: hasError ? 0.92 : 1, transform: [{ scale: logoScale }] }]}> 
-        <Animated.View style={[styles.logoRing, { borderColor: colors.gold + "66", opacity: logoGlow, transform: [{ rotate: spinRotate }] }]} />
+      <Animated.View style={[styles.logoWrap, { backgroundColor: "#111318", borderColor: splashGold + "77", opacity: hasError ? 0.92 : 1, transform: [{ scale: logoScale }] }]}> 
+        <Animated.View style={[styles.logoRing, { borderColor: splashGold + "66", opacity: logoGlow, transform: [{ rotate: spinRotate }] }]} />
         <OfficialWalletLogo size={76} />
       </Animated.View>
 
-      <Text style={[styles.title, { color: colors.foreground }]}>Earn Daily</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Earn today, secure tomorrow</Text>
-      <Text style={[styles.credit, { color: colors.gold }]}>Design & Developed by Muhammad Ali Irfan Khan</Text>
+      <Text style={[styles.title, { color: splashText }]}>Earn Daily</Text>
+      <Text style={[styles.subtitle, { color: splashMuted }]}>Earn today, secure tomorrow</Text>
+      <Text style={[styles.credit, { color: splashGold }]}>Design & Developed by Muhammad Ali Irfan Khan</Text>
 
       <View style={[styles.statusCard, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.10)" }]}> 
         {hasError ? (
           <>
             <Feather name="wifi-off" size={26} color={colors.destructive} />
-            <Text style={[styles.errorTitle, { color: colors.foreground }]}>{friendlyError.title}</Text>
-            <Text style={[styles.errorText, { color: colors.mutedForeground }]}>{friendlyError.message}</Text>
+            <Text style={[styles.errorTitle, { color: splashText }]}>{friendlyError.title}</Text>
+            <Text style={[styles.errorText, { color: splashMuted }]}>{friendlyError.message}</Text>
             <Pressable onPress={onRetry} style={({ pressed }) => [styles.retryBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}> 
               <Feather name="refresh-cw" size={16} color="#fff" />
               <Text style={styles.retryText}>Retry</Text>
@@ -87,9 +91,9 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
           </>
         ) : (
           <>
-            <ActivityIndicator size="large" color={colors.gold} />
-            <Text style={[styles.loadingText, { color: colors.foreground }]}>Starting Earn Daily</Text>
-            <Text style={[styles.loadingSub, { color: colors.mutedForeground }]}>Preparing your secure reward account...</Text>
+            <ActivityIndicator size="large" color={splashGold} />
+            <Text style={[styles.loadingText, { color: splashText }]}>Starting Earn Daily</Text>
+            <Text style={[styles.loadingSub, { color: splashMuted }]}>Preparing your secure reward account...</Text>
             <View style={styles.dotRow}>
               {[0, 1, 2].map((index) => (
                 <Animated.View
@@ -97,7 +101,7 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
                   style={[
                     styles.dot,
                     {
-                      backgroundColor: colors.gold,
+                      backgroundColor: splashGold,
                       opacity: pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: index === 0 ? [1, 0.55, 0.3] : index === 1 ? [0.45, 1, 0.45] : [0.3, 0.55, 1] }),
                     },
                   ]}
