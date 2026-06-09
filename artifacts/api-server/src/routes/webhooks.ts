@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import {
-  creditOfferwallReward,
   handleOfferwallReversal,
   handleRouteError,
   storeManualReviewOfferEvent,
 } from "../services/firebase-admin.js";
+import { creditOfferwallRewardWithPolicy } from "../services/providerRewards.js";
 import { recordCompletedTask } from "../services/progress.js";
 import {
   markProviderTaskSlotCredited,
@@ -253,7 +253,7 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
         if (!taskSlot.duplicate) reservationId = taskSlot.reservationId;
       }
 
-      const result = await creditOfferwallReward({
+      const result = await creditOfferwallRewardWithPolicy({
         deviceId: parsed.deviceId,
         provider,
         externalTransactionId: parsed.externalTransactionId,
