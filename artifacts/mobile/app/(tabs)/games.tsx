@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { GameAdGate } from "@/components/GameAdGate";
 import type { RewardResult } from "@/services/api";
@@ -188,7 +189,7 @@ function ScratchCard({ disabled, onBackendScratch }: { disabled: boolean; onBack
         <LinearGradient colors={["#291B05", "#0D0D1A", "#1A0A3A"]} style={StyleSheet.absoluteFillObject} />
         <View style={styles.ticketHeader}>
           <Feather name="award" size={20} color={colors.gold} />
-          <Text style={[styles.ticketTitle, { color: colors.foreground }]}>Premium Scratch Ticket</Text>
+          <Text style={[styles.ticketTitle, { color: "#FFFFFF" }]}>Premium Scratch Ticket</Text>
         </View>
         <Pressable disabled={disabled || busy} onPress={reveal} style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}>
           <LinearGradient colors={reward === null ? ["#E5E7EB", "#9CA3AF", "#F3F4F6"] : ["#111827", "#1F2937"]} style={styles.scratchArea}>
@@ -206,7 +207,7 @@ function ScratchCard({ disabled, onBackendScratch }: { disabled: boolean; onBack
             ) : (
               <Animated.View style={{ alignItems: "center", transform: [{ scale: revealScale }] }}>
                 <Text style={[styles.rewardValue, { color: colors.gold }]}>+{reward}</Text>
-                <Text style={[styles.rewardLabel, { color: colors.foreground }]}>ENERGY EARNED</Text>
+                <Text style={[styles.rewardLabel, { color: "#FFFFFF" }]}>ENERGY EARNED</Text>
               </Animated.View>
             )}
           </LinearGradient>
@@ -219,9 +220,20 @@ function ScratchCard({ disabled, onBackendScratch }: { disabled: boolean; onBack
 
 export default function GamesScreen() {
   const colors = useColors();
+  const { themeKey } = useTheme();
   const insets = useSafeAreaInsets();
   const { user, spin, scratch } = useUser();
   const [activeTab, setActiveTab] = useState<"spin" | "scratch">("spin");
+
+  const isDaylight = themeKey === "daylight";
+  const screenGradient = useMemo(
+    () => isDaylight ? ["#FFFDF8", "#EAF8FF", "#FFFFFF"] as [string, string, string] : ["#0D0D1A", "#131326", "#090911"] as [string, string, string],
+    [isDaylight],
+  );
+  const panelSurface = isDaylight ? colors.card : "rgba(255,255,255,0.04)";
+  const softSurface = isDaylight ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)";
+  const cardBorder = isDaylight ? colors.border : "rgba(255,255,255,0.10)";
+  const activeTabTextColor = isDaylight ? "#05131F" : "#FFFFFF";
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const spinsUsed = user?.lastSpinResetDate === new Date().toISOString().split("T")[0] ? user?.dailySpinsUsed ?? 0 : 0;
@@ -233,34 +245,34 @@ export default function GamesScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <LinearGradient colors={["#0D0D1A", "#131326", "#090911"]} style={StyleSheet.absoluteFillObject} />
-      <View style={styles.bgGlowA} />
-      <View style={styles.bgGlowB} />
+      <LinearGradient colors={screenGradient} style={StyleSheet.absoluteFillObject} />
+      <View style={[styles.bgGlowA, { backgroundColor: isDaylight ? "rgba(56,189,248,0.16)" : "rgba(124,58,237,0.16)" }]} />
+      <View style={[styles.bgGlowB, { backgroundColor: isDaylight ? "rgba(217,154,5,0.12)" : "rgba(245,158,11,0.12)" }]} />
 
       <ScrollView contentContainerStyle={{ paddingTop: topPad + 16, paddingBottom: Platform.OS === "web" ? 34 : 106, paddingHorizontal: 18 }} showsVerticalScrollIndicator={false}>
         <Text style={[styles.title, { color: colors.foreground }]}>Mini Games</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{activeDescription}</Text>
 
-        <View style={[styles.tabs, { borderColor: colors.border, backgroundColor: "rgba(255,255,255,0.04)" }]}>
+        <View style={[styles.tabs, { borderColor: colors.border, backgroundColor: panelSurface }]}>
           {(["spin", "scratch"] as const).map((tab) => (
             <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.tabButton, activeTab === tab && { backgroundColor: colors.primary }]}>
-              <Text style={[styles.tabText, { color: activeTab === tab ? "#fff" : colors.mutedForeground }]}>{tab === "spin" ? "Spin" : "Scratch"}</Text>
+              <Text style={[styles.tabText, { color: activeTab === tab ? activeTabTextColor : colors.mutedForeground }]}>{tab === "spin" ? "Spin" : "Scratch"}</Text>
             </Pressable>
           ))}
         </View>
 
         <View style={styles.limitRow}>
-          <View style={[styles.limitBadge, { borderColor: colors.purple + "44" }]}>
+          <View style={[styles.limitBadge, { borderColor: colors.purple + "44", backgroundColor: softSurface }]}>
             <Feather name="zap" size={14} color={colors.purple} />
             <Text style={[styles.limitText, { color: colors.purple }]}>{spinsLeft}/5 spins left</Text>
           </View>
-          <View style={[styles.limitBadge, { borderColor: colors.blue + "44" }]}>
+          <View style={[styles.limitBadge, { borderColor: colors.blue + "44", backgroundColor: softSurface }]}>
             <Feather name="layers" size={14} color={colors.blue} />
             <Text style={[styles.limitText, { color: colors.blue }]}>{scratchLeft}/5 scratches left</Text>
           </View>
         </View>
 
-        <View style={[styles.cardFrame, { borderColor: "rgba(255,255,255,0.10)" }]}>
+        <View style={[styles.cardFrame, { borderColor: cardBorder, backgroundColor: panelSurface }]}>
           {activeTab === "spin" ? (
             <SpinWheel disabled={spinsLeft <= 0} onBackendSpin={spin} />
           ) : (
@@ -270,7 +282,7 @@ export default function GamesScreen() {
 
         <GameAdGate spinsLeft={spinsLeft} scratchLeft={scratchLeft} />
 
-        <View style={[styles.infoBox, { borderColor: colors.border, backgroundColor: "rgba(255,255,255,0.04)" }]}>
+        <View style={[styles.infoBox, { borderColor: colors.border, backgroundColor: panelSurface }]}>
           <Feather name="zap" size={18} color={colors.gold} />
           <Text style={[styles.infoText, { color: colors.mutedForeground }]}>Spin and Scratch now earn random Energy only. Energy unlocks extra task slots and app benefits. It cannot be withdrawn.</Text>
         </View>
@@ -281,17 +293,17 @@ export default function GamesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  bgGlowA: { position: "absolute", width: 240, height: 240, borderRadius: 240, top: -60, left: -80, backgroundColor: "rgba(124,58,237,0.16)" },
-  bgGlowB: { position: "absolute", width: 220, height: 220, borderRadius: 220, top: 220, right: -80, backgroundColor: "rgba(245,158,11,0.12)" },
+  bgGlowA: { position: "absolute", width: 240, height: 240, borderRadius: 240, top: -60, left: -80 },
+  bgGlowB: { position: "absolute", width: 220, height: 220, borderRadius: 220, top: 220, right: -80 },
   title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30, marginBottom: 4 },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17, marginBottom: 12 },
   tabs: { flexDirection: "row", borderRadius: 16, borderWidth: 1, padding: 3, marginBottom: 12 },
   tabButton: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center" },
   tabText: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   limitRow: { flexDirection: "row", gap: 10, marginBottom: 16, flexWrap: "wrap" },
-  limitBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.04)" },
+  limitBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   limitText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15 },
-  cardFrame: { borderRadius: 24, borderWidth: 1, padding: 14, backgroundColor: "rgba(255,255,255,0.04)", alignItems: "center", marginBottom: 12, overflow: "hidden" },
+  cardFrame: { borderRadius: 24, borderWidth: 1, padding: 14, alignItems: "center", marginBottom: 12, overflow: "hidden" },
   gameBlock: { width: "100%", alignItems: "center", gap: 14 },
   pointerWrap: { height: 24, alignItems: "center", justifyContent: "flex-end", zIndex: 2, marginBottom: -6 },
   pointer: { width: 0, height: 0, borderLeftWidth: 13, borderRightWidth: 13, borderTopWidth: 24, borderLeftColor: "transparent", borderRightColor: "transparent" },
