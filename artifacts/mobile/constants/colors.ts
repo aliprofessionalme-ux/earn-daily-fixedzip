@@ -79,6 +79,46 @@ const colors = {
     red: "#EF4444",
   },
 
+  daylight: {
+    text: "#15110A",
+    tint: "#0EA5E9",
+
+    background: "#FFFDF8",
+    foreground: "#15110A",
+
+    card: "#FFFFFF",
+    cardForeground: "#15110A",
+
+    primary: "#38BDF8",
+    primaryForeground: "#06243A",
+
+    secondary: "#F5C542",
+    secondaryForeground: "#17120A",
+
+    muted: "#F2F4F7",
+    mutedForeground: "#6B7280",
+
+    accent: "#16A34A",
+    accentForeground: "#FFFFFF",
+
+    destructive: "#DC2626",
+    destructiveForeground: "#FFFFFF",
+
+    border: "#E5E7EB",
+    input: "#E5E7EB",
+
+    gold: "#D99A05",
+    goldLight: "#FFE08A",
+    purple: "#8B5CF6",
+    purpleLight: "#C4B5FD",
+    purpleDark: "#DDF4FF",
+    green: "#16A34A",
+    pink: "#DB2777",
+    blue: "#0EA5E9",
+    orange: "#EA580C",
+    red: "#DC2626",
+  },
+
   radius: 16,
 };
 
