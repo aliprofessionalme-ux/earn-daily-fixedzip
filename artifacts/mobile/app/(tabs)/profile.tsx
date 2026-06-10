@@ -71,7 +71,7 @@ function MiniMetric({ icon, label, value, color }: { icon: React.ComponentProps<
   const colors = useColors();
   return (
     <View style={[styles.miniMetric, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-      <View style={[styles.miniMetricIcon, { backgroundColor: color + "18" }]}>
+      <View style={[styles.miniMetricIcon, { backgroundColor: color + "18" }]}> 
         <Feather name={icon} size={15} color={color} />
       </View>
       <Text style={[styles.miniMetricValue, { color }]} numberOfLines={1}>{value}</Text>
@@ -99,7 +99,7 @@ export default function ProfileScreen() {
   const pending = user?.pendingCoinsBalance ?? 0;
   const confirmed = user?.confirmedCoinsBalance ?? user?.coinsBalance ?? 0;
   const pkr = user?.pkrBalance ?? 0;
-  const lifetimeCoins = user?.lifetimeCoinsBalance ?? user?.totalEarnedCoins ?? confirmed;
+  const lifetimeCoins = user?.totalEarnedCoins ?? confirmed;
   const today = todayKey();
   const tasksToday = user?.lastDailyTaskDate === today ? user?.dailyTasksCompletedToday ?? 0 : 0;
   const energyToday = user?.lastDailyEnergyDate === today ? user?.dailyEnergyEarnedToday ?? 0 : 0;
