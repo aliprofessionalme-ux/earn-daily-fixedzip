@@ -24,6 +24,13 @@ function todayKey() {
 
 function formatPKR(n: number) { return `PKR ${Number(n || 0).toFixed(2)}`; }
 
+function initialsFrom(name?: string | null, fallback?: string | null) {
+  const source = (name || fallback || "ED").trim();
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   const colors = useColors();
   return (
@@ -60,6 +67,19 @@ function ToolRow({ icon, title, subtitle, onPress }: { icon: React.ComponentProp
   );
 }
 
+function MiniMetric({ icon, label, value, color }: { icon: React.ComponentProps<typeof Feather>["name"]; label: string; value: string; color: string }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.miniMetric, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+      <View style={[styles.miniMetricIcon, { backgroundColor: color + "18" }]}> 
+        <Feather name={icon} size={15} color={color} />
+      </View>
+      <Text style={[styles.miniMetricValue, { color }]} numberOfLines={1}>{value}</Text>
+      <Text style={[styles.miniMetricLabel, { color: colors.mutedForeground }]} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -79,17 +99,25 @@ export default function ProfileScreen() {
   const pending = user?.pendingCoinsBalance ?? 0;
   const confirmed = user?.confirmedCoinsBalance ?? user?.coinsBalance ?? 0;
   const pkr = user?.pkrBalance ?? 0;
+  const lifetimeCoins = user?.totalEarnedCoins ?? confirmed;
   const today = todayKey();
   const tasksToday = user?.lastDailyTaskDate === today ? user?.dailyTasksCompletedToday ?? 0 : 0;
   const energyToday = user?.lastDailyEnergyDate === today ? user?.dailyEnergyEarnedToday ?? 0 : 0;
   const streak = user?.lastDailyTaskDate === today ? user?.currentDailyStreak ?? 0 : 0;
   const level = useMemo(() => getUserLevel(user), [user]);
   const badges = useMemo(() => getUnlockedBadges(user, 6), [user]);
-  const levelProgress = Math.round(level.progress * 100);
+  const levelProgress = Math.max(0, Math.min(100, Math.round(level.progress * 100)));
+  const publicName = (user?.displayName || displayName || "Earn Daily User").trim();
   const profileGradient = useMemo(
     () => themeKey === "primary" ? ["#1A0A3A", "#0D0D1A"] as const : [colors.purpleDark, colors.background] as const,
     [colors.background, colors.purpleDark, themeKey],
   );
+  const statusIcon: React.ComponentProps<typeof Feather>["name"] = user?.isBanned ? "x-octagon" : "shield";
+  const statusColor = user?.isBanned ? colors.destructive : colors.green;
+  const statusTitle = user?.isBanned ? "Restricted" : "Active";
+  const statusSubtitle = user?.isBanned
+    ? user?.banReason || "Rewards and withdrawals are blocked."
+    : authVerified ? "Firebase verified account" : "Device account pending verification";
 
   const saveProfile = async () => {
     const name = displayName.trim().replace(/\s+/g, " ");
@@ -127,12 +155,29 @@ export default function ProfileScreen() {
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>Profile</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Settings, referrals and account tools</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Personal account and app preferences</Text>
           </View>
           <Pressable onPress={() => void refreshUser()} style={[styles.refresh, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <Feather name="refresh-cw" size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
+
+        <LinearGradient colors={[colors.gold + "20", "rgba(255,255,255,0.04)"]} style={[styles.identityCard, { borderColor: colors.border }]}> 
+          <View style={styles.identityRow}>
+            <View style={[styles.profileMark, { backgroundColor: colors.background, borderColor: colors.gold + "55" }]}> 
+              <Text style={[styles.profileMarkText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.profileName, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
+              <Text style={[styles.profilePhone, { color: colors.mutedForeground }]} numberOfLines={1}>{user?.phone || "Phone number not added"}</Text>
+            </View>
+            <View style={[styles.statusPill, { backgroundColor: statusColor + "18", borderColor: statusColor + "55" }]}> 
+              <Feather name={statusIcon} size={13} color={statusColor} />
+              <Text style={[styles.statusPillText, { color: statusColor }]}>{statusTitle}</Text>
+            </View>
+          </View>
+          <Text style={[styles.identitySub, { color: colors.mutedForeground }]} numberOfLines={2}>{statusSubtitle}</Text>
+        </LinearGradient>
 
         <View style={styles.balanceRow}>
           <CompactStatCard icon="zap" label="Energy" value={energy.toLocaleString()} sub="App benefits" colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.gold} />
@@ -141,35 +186,56 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionTitle title="Your details" />
-          <View style={[styles.nameCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <SectionTitle title="Personal details" />
+          <View style={[styles.editCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <TextInput
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="Set your public name"
               placeholderTextColor={colors.mutedForeground}
               maxLength={40}
-              style={[styles.nameInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
             />
             <TextInput
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              placeholder="Phone number (optional)"
+              placeholder="Phone number"
               placeholderTextColor={colors.mutedForeground}
               maxLength={30}
-              style={[styles.nameInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
             />
             <Pressable disabled={savingName} onPress={saveProfile} style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingName ? 0.7 : 1 }]}> 
               {savingName ? <ActivityIndicator color="#fff" /> : <Feather name="save" size={17} color="#fff" />}
-              <Text style={styles.saveText}>Save</Text>
+              <Text style={styles.saveText}>Save profile</Text>
             </Pressable>
             {nameNotice ? <Text style={[styles.notice, { color: nameNotice.ok ? colors.green : colors.destructive }]}>{nameNotice.text}</Text> : null}
           </View>
         </View>
 
         <View style={styles.section}>
-          <SectionTitle title="App theme" />
+          <SectionTitle title="Daily progress" />
+          <View style={styles.progressGrid}>
+            <MiniMetric icon="target" label="Tasks" value={`${Math.min(tasksToday, 5)}/5`} color={colors.green} />
+            <MiniMetric icon="zap" label="Energy" value={energyToday.toLocaleString()} color={colors.gold} />
+            <MiniMetric icon="activity" label="Streak" value={streak.toLocaleString()} color={colors.orange} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionTitle title="Account tools" />
+          <View style={styles.toolsList}>
+            <ToolRow icon="award" title="Top users" subtitle="Leaderboard with hidden account IDs" onPress={() => router.push("/leaderboard")} />
+            <ToolRow icon="share-2" title="Referral QR" subtitle="Share, scan and track qualified referral bonuses" onPress={() => router.push("/referral")} />
+            <ToolRow icon="bell" title="Notifications" subtitle="Withdrawals, rewards and support replies" onPress={() => router.push("/notifications")} />
+            <ToolRow icon="list" title="Transactions" subtitle="Balance changes and reward history" onPress={() => router.push("/transactions")} />
+            <ToolRow icon="message-circle" title="Support" subtitle="Send a ticket and view admin replies" onPress={() => router.push("/support")} />
+            <ToolRow icon="send" title="Official WhatsApp Channel" subtitle="Earn Daily official updates" onPress={openWhatsAppChannel} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionTitle title="Appearance" />
           <View style={styles.themeGrid}>
             {themeOptions.map((option) => {
               const active = option.key === themeKey;
@@ -201,21 +267,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.progressGrid}>
-          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <Text style={[styles.progressValue, { color: colors.gold }]}>{streak}</Text>
-            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Daily streak</Text>
-          </View>
-          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <Text style={[styles.progressValue, { color: colors.green }]}>{Math.min(tasksToday, 5)}/5</Text>
-            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Tasks today</Text>
-          </View>
-          <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <Text style={[styles.progressValue, { color: colors.orange }]}>{energyToday}</Text>
-            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Energy today</Text>
-          </View>
-        </View>
-
         <View style={styles.section}>
           <SectionTitle title="Level & badges" />
           <View style={[styles.levelCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
@@ -225,7 +276,7 @@ export default function ProfileScreen() {
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.levelName, { color: colors.foreground }]}>{level.name} Level</Text>
-                <Text style={[styles.levelSub, { color: colors.mutedForeground }]}>{level.coins.toLocaleString()} lifetime coins</Text>
+                <Text style={[styles.levelSub, { color: colors.mutedForeground }]}>{lifetimeCoins.toLocaleString()} lifetime coins</Text>
               </View>
               <Text style={[styles.levelPercent, { color: level.color }]}>{levelProgress}%</Text>
             </View>
@@ -242,45 +293,21 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionTitle title="Account status" />
-          <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <View style={[styles.avatar, { backgroundColor: (user?.isBanned ? colors.destructive : colors.green) + "20" }]}> 
-              <Feather name={user?.isBanned ? "x-octagon" : "shield"} size={24} color={user?.isBanned ? colors.destructive : colors.green} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.statusTitle, { color: colors.foreground }]}>{user?.isBanned ? "Account banned" : "Account active"}</Text>
-              <Text style={[styles.statusSub, { color: colors.mutedForeground }]}> 
-                {user?.isBanned
-                  ? user?.banReason || "Rewards and withdrawals are blocked."
-                  : `${authMode === "firebase-anonymous" ? "Firebase anonymous auth" : "Device-only fallback"} - ${authVerified ? "verified" : "not verified"}`}
-              </Text>
-            </View>
+          <SectionTitle title="Help & rules" />
+          <View style={styles.toolsList}>
+            <ToolRow icon="help-circle" title="How it works" subtitle="Rewards, verification and payout timing" onPress={() => router.push("/how-it-works")} />
+            <ToolRow icon="file-text" title="Terms & Conditions" subtitle="Fair play, VPN, fraud and withdrawal rules" onPress={() => router.push("/terms")} />
           </View>
         </View>
 
         <View style={styles.section}>
-          <SectionTitle title="Account info" />
+          <SectionTitle title="Private account info" />
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <InfoRow label="Device ID" value={truncate(deviceId)} />
             <InfoRow label="Referral code" value={user?.referralCode ?? "Open Referral to create"} />
-            <InfoRow label="Phone" value={user?.phone || "Not added"} />
+            <InfoRow label="Device ID" value={truncate(deviceId)} />
             <InfoRow label="Install ID" value={truncate(installId)} />
             <InfoRow label="Firebase UID" value={truncate(firebaseUid ?? user?.firebaseUid)} />
             <InfoRow label="Auth mode" value={authMode} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionTitle title="Account tools" />
-          <View style={styles.toolsList}>
-            <ToolRow icon="award" title="Top users" subtitle="Leaderboard with hidden user IDs and coin ranking" onPress={() => router.push("/leaderboard")} />
-            <ToolRow icon="share-2" title="Referral QR" subtitle="Share your referral code and track qualified bonuses" onPress={() => router.push("/referral")} />
-            <ToolRow icon="send" title="Official WhatsApp Channel" subtitle="Join Earn Daily official updates and announcements" onPress={openWhatsAppChannel} />
-            <ToolRow icon="gift" title="Earn Rewards" subtitle="Complete verified tasks for Pending Coins" onPress={() => router.push("/(tabs)/offerwall")} />
-            <ToolRow icon="list" title="Transactions" subtitle="View all balance changes and rewards history" onPress={() => router.push("/transactions")} />
-            <ToolRow icon="message-circle" title="Support" subtitle="Submit an issue and view previous tickets" onPress={() => router.push("/support")} />
-            <ToolRow icon="help-circle" title="How it works" subtitle="Learn earning, conversion, payout review and fair usage" onPress={() => router.push("/how-it-works")} />
-            <ToolRow icon="file-text" title="Terms & Conditions" subtitle="Fair play, fraud rules and withdrawal review terms" onPress={() => router.push("/terms")} />
           </View>
         </View>
       </ScrollView>
@@ -294,24 +321,39 @@ const styles = StyleSheet.create({
   title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30 },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16, marginTop: 2 },
   refresh: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  identityCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginBottom: 12, overflow: "hidden" },
+  identityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  profileMark: { width: 58, height: 58, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  profileMarkText: { fontFamily: "Inter_700Bold", fontSize: 20, lineHeight: 25 },
+  profileName: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 23 },
+  profilePhone: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16, marginTop: 2 },
+  statusPill: { minHeight: 28, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", gap: 5 },
+  statusPillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
+  identitySub: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 10 },
   balanceRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
   section: { marginBottom: 14 },
-  nameCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
-  nameInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
+  editCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
+  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
   saveBtn: { minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   saveText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
   notice: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, textAlign: "center" },
-  themeGrid: { flexDirection: "row", gap: 8 },
-  themeOption: { flex: 1, minHeight: 116, borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
+  progressGrid: { flexDirection: "row", gap: 8 },
+  miniMetric: { flex: 1, minHeight: 88, borderWidth: 1, borderRadius: 14, padding: 10, alignItems: "center", justifyContent: "center" },
+  miniMetricIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  miniMetricValue: { fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 22 },
+  miniMetricLabel: { fontFamily: "Inter_600SemiBold", fontSize: 10, lineHeight: 13, marginTop: 1, textAlign: "center" },
+  toolsList: { gap: 8 },
+  toolRow: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  toolIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  toolTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
+  toolSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 1 },
+  themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  themeOption: { width: "48.6%", minHeight: 118, borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
   themeTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   themeSwatches: { flexDirection: "row", alignItems: "center" },
   themeSwatch: { width: 22, height: 22, borderRadius: 999, borderWidth: 1, borderColor: "rgba(255,255,255,0.24)", marginRight: -5 },
   themeTitle: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   themeText: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
-  progressGrid: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  progressCard: { flex: 1, borderWidth: 1, borderRadius: 14, padding: 12, alignItems: "center" },
-  progressValue: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 23 },
-  progressLabel: { fontFamily: "Inter_500Medium", fontSize: 10.5, lineHeight: 14, marginTop: 2, textAlign: "center" },
   levelCard: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
   levelTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   levelIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
@@ -324,17 +366,8 @@ const styles = StyleSheet.create({
   badgesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   badgePill: { minHeight: 30, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "48%" },
   badgePillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15, flexShrink: 1 },
-  statusCard: { borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row", gap: 12, alignItems: "center" },
-  avatar: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  statusTitle: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20 },
-  statusSub: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, marginTop: 3 },
   infoCard: { borderWidth: 1, borderRadius: 16, overflow: "hidden" },
   infoRow: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.09)" },
   infoLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginBottom: 2 },
   infoValue: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16 },
-  toolsList: { gap: 8 },
-  toolRow: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
-  toolIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  toolTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
-  toolSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 1 },
 });
