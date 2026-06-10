@@ -67,6 +67,9 @@ catalog:
   zod: ^3.25.76
 
 autoInstallPeers: false
+# Replit may run a different pnpm binary than package.json declares. Warn and
+# continue instead of trying to install pnpm recursively at command startup.
+pmOnFail: warn
 
 onlyBuiltDependencies:
   - '@swc/core'
