@@ -1,4 +1,5 @@
 modules = ["nodejs-24"]
+run = "bash scripts/replit-dev.sh"
 
 [deployment]
 router = "application"
@@ -10,6 +11,15 @@ env = { "CI" = "true" }
 
 [workflows]
 runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+author = "codex"
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/replit-dev.sh"
 
 [agent]
 stack = "PNPM_WORKSPACE"
