@@ -11,6 +11,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
+import { ActivityIndicator, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -55,6 +56,20 @@ function AppGate() {
   return <RootStack />;
 }
 
+function FontLoadingFallback() {
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#050607", paddingHorizontal: 24 }}>
+      <ActivityIndicator color="#F2C94C" size="large" />
+      <Text style={{ color: "#FFF9EA", fontSize: 18, fontWeight: "700", marginTop: 16, textAlign: "center" }}>Earn Daily</Text>
+      <Text style={{ color: "#B8B0A0", fontSize: 13, marginTop: 6, textAlign: "center" }}>Starting your reward account...</Text>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -64,7 +79,7 @@ export default function RootLayout() {
     Inter_800ExtraBold,
   });
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded && !fontError) return <FontLoadingFallback />;
 
   return (
     <SafeAreaProvider>
