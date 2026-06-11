@@ -59,6 +59,36 @@ export function getApiFirebaseToken(): string | null {
   return _firebaseToken;
 }
 
+export type AvatarSlot = "skinTone" | "hair" | "outfit" | "background" | "frame" | "seat";
+export type AvatarRarity = "free" | "common" | "rare" | "royal";
+
+export interface EquippedAvatar {
+  skinTone: string;
+  hair: string;
+  outfit: string;
+  background: string;
+  frame: string;
+  seat: string;
+}
+
+export interface AvatarItem {
+  itemId: string;
+  slot: AvatarSlot;
+  label: string;
+  description: string;
+  priceEnergy: number;
+  rarity: AvatarRarity;
+  swatch: string;
+}
+
+export interface AvatarState {
+  catalog: AvatarItem[];
+  ownedItemIds: string[];
+  equippedAvatar: EquippedAvatar;
+  energyBalance: number;
+  rankPerks: Array<{ rank: number; label: string; description: string }>;
+}
+
 export interface UserDocument {
   deviceId: string;
   installId?: string | null;
@@ -82,6 +112,9 @@ export interface UserDocument {
   lastDailyEnergyDate?: string | null;
   lifetimeCompletedTasks?: number;
   lifetimeEnergyEarned?: number;
+  avatarOwnedItemIds?: string[];
+  avatarEquipped?: EquippedAvatar | null;
+  avatarEnergySpent?: number;
   // Legacy single balance (kept for backward compat, synced with confirmed)
   coinsBalance: number;
   pkrBalance: number;
@@ -155,6 +188,7 @@ export interface LeaderboardUser {
   energyBalance: number;
   currentDailyStreak: number;
   dailyTasksCompletedToday: number;
+  avatarEquipped?: EquippedAvatar | null;
   lastActiveAt?: string | null;
 }
 
@@ -402,6 +436,18 @@ export async function getUser(deviceId: string): Promise<UserDocument> {
 
 export async function updateUserProfile(deviceId: string, payload: { displayName: string; phone?: string | null }): Promise<{ success: boolean; user: UserDocument | null }> {
   return apiFetch(`/users/${encodeURIComponent(deviceId)}/profile`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function getAvatar(deviceId: string): Promise<AvatarState> {
+  return apiFetch<AvatarState>(`/users/${encodeURIComponent(deviceId)}/avatar`);
+}
+
+export async function buyAvatarItem(deviceId: string, itemId: string): Promise<AvatarState> {
+  return apiFetch<AvatarState>(`/users/${encodeURIComponent(deviceId)}/avatar/buy`, { method: "POST", body: JSON.stringify({ itemId }) });
+}
+
+export async function equipAvatarItem(deviceId: string, slot: AvatarSlot, itemId: string): Promise<AvatarState> {
+  return apiFetch<AvatarState>(`/users/${encodeURIComponent(deviceId)}/avatar/equip`, { method: "POST", body: JSON.stringify({ slot, itemId }) });
 }
 
 export async function registerPushToken(deviceId: string, payload: PushTokenPayload): Promise<{ success: boolean; message: string }> {
