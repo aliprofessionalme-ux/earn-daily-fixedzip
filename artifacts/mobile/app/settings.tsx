@@ -112,7 +112,6 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SectionTitle title="App tools" />
           <View style={styles.toolsList}>
-            <ToolRow icon="share-2" title="Referral QR" subtitle="Share, scan and track qualified referral bonuses" onPress={() => router.push("/referral")} />
             <ToolRow icon="bell" title="Notifications" subtitle="Withdrawals, rewards and support replies" onPress={() => router.push("/notifications")} />
             <ToolRow icon="list" title="Transactions" subtitle="Balance changes and reward history" onPress={() => router.push("/transactions")} />
             <ToolRow icon="message-circle" title="Support" subtitle="Send a ticket and view admin replies" onPress={() => router.push("/support")} />
