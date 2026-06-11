@@ -9,7 +9,10 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { SectionTitle } from "@/components/SectionTitle";
+import { getLeaderboard, type LeaderboardUser } from "@/services/api";
 import { getUnlockedBadges, getUserLevel, type BadgeIcon, type BadgeInfo } from "@/utils/badges";
+
+type RankedUser = LeaderboardUser & { deviceId?: string };
 
 function todayKey() {
   try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" }); }
@@ -58,9 +61,35 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [savingName, setSavingName] = useState(false);
   const [nameNotice, setNameNotice] = useState<{ text: string; ok: boolean } | null>(null);
+  const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
+  const [rankLoaded, setRankLoaded] = useState(false);
 
   useEffect(() => { setDisplayName(user?.displayName ?? ""); }, [user?.displayName]);
   useEffect(() => { setPhone(user?.phone ?? ""); }, [user?.phone]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!deviceId) {
+      setLeaderboardRank(null);
+      setRankLoaded(true);
+      return () => { cancelled = true; };
+    }
+
+    setRankLoaded(false);
+    getLeaderboard(100)
+      .then((items) => {
+        if (cancelled) return;
+        const match = (items as RankedUser[]).find((item) => item.deviceId === deviceId);
+        setLeaderboardRank(match?.rank ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setLeaderboardRank(null);
+      })
+      .finally(() => {
+        if (!cancelled) setRankLoaded(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [deviceId]);
 
   const energy = user?.energyBalance ?? 0;
   const pending = user?.pendingCoinsBalance ?? 0;
@@ -75,6 +104,8 @@ export default function ProfileScreen() {
   const badges = useMemo(() => getUnlockedBadges(user, 6), [user]);
   const levelProgress = Math.max(0, Math.min(100, Math.round(level.progress * 100)));
   const publicName = (user?.displayName || displayName || "Earn Daily User").trim();
+  const rankValue = rankLoaded ? (leaderboardRank ? `#${leaderboardRank}` : "Top 100+") : "...";
+  const rankHint = leaderboardRank ? "Your top users position" : "Earn more confirmed coins to enter top 100";
   const profileGradient = useMemo(
     () => themeKey === "daylight"
       ? ["#F7FFF9", "#E9F8EE", "#DDF6E5"] as const
@@ -123,10 +154,16 @@ export default function ProfileScreen() {
               <View style={[styles.profileAvatar, { backgroundColor: colors.background, borderColor: colors.gold + "66" }]}> 
                 <Text style={[styles.profileAvatarText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
               </View>
-              <Pressable disabled style={[styles.avatarEdit, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18" }]}> 
-                <Feather name="edit-3" size={11} color={colors.gold} />
-                <Text style={[styles.avatarEditText, { color: colors.gold }]}>Edit Avatar</Text>
-              </Pressable>
+              <View style={styles.profileActions}>
+                <Pressable disabled style={[styles.avatarAction, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18" }]}> 
+                  <Feather name="edit-3" size={11} color={colors.gold} />
+                  <Text style={[styles.avatarActionText, { color: colors.gold }]}>Edit Avatar</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push("/referral")} style={({ pressed }) => [styles.avatarAction, { borderColor: colors.green + "55", backgroundColor: colors.green + "18", opacity: pressed ? 0.72 : 1 }]}> 
+                  <Feather name="share-2" size={11} color={colors.green} />
+                  <Text style={[styles.avatarActionText, { color: colors.green }]}>Refer QR</Text>
+                </Pressable>
+              </View>
             </View>
             <View style={styles.identityCopy}>
               <Text style={[styles.profileName, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
@@ -145,6 +182,17 @@ export default function ProfileScreen() {
           <MiniMetric icon="clock" label="Pending" value={pending.toLocaleString()} color={colors.orange} />
           <MiniMetric icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} color={colors.green} />
         </View>
+
+        <Pressable onPress={() => router.push("/leaderboard")} style={({ pressed }) => [styles.rankCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}> 
+          <View style={[styles.rankIcon, { backgroundColor: colors.gold + "18" }]}> 
+            <Feather name="award" size={19} color={colors.gold} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.rankLabel, { color: colors.mutedForeground }]}>Top Users Rank</Text>
+            <Text style={[styles.rankHint, { color: colors.foreground }]} numberOfLines={1}>{rankHint}</Text>
+          </View>
+          <Text style={[styles.rankValue, { color: colors.gold }]}>{rankValue}</Text>
+        </Pressable>
 
         <View style={styles.section}>
           <SectionTitle title="Personal details" />
@@ -221,15 +269,21 @@ const styles = StyleSheet.create({
   avatarColumn: { alignItems: "center", gap: 8 },
   profileAvatar: { width: 76, height: 76, borderRadius: 999, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   profileAvatarText: { fontFamily: "Inter_800ExtraBold", fontSize: 25, lineHeight: 31 },
-  avatarEdit: { minHeight: 28, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
-  avatarEditText: { fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 13 },
+  profileActions: { alignItems: "center", gap: 6 },
+  avatarAction: { minHeight: 28, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
+  avatarActionText: { fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 13 },
   identityCopy: { flex: 1, minWidth: 0 },
   profileName: { fontFamily: "Inter_800ExtraBold", fontSize: 22, lineHeight: 28 },
   profilePhone: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16, marginTop: 3 },
   statusPill: { alignSelf: "flex-start", minHeight: 28, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, marginTop: 9, flexDirection: "row", alignItems: "center", gap: 5 },
   statusPillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
   identitySub: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 8 },
-  balanceRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  balanceRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
+  rankCard: { minHeight: 66, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14, flexDirection: "row", alignItems: "center", gap: 10 },
+  rankIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  rankLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15 },
+  rankHint: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17, marginTop: 1 },
+  rankValue: { fontFamily: "Inter_800ExtraBold", fontSize: 20, lineHeight: 25 },
   section: { marginBottom: 14 },
   editCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
