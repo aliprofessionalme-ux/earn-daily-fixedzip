@@ -105,7 +105,7 @@ export default function ProfileScreen() {
   const levelProgress = Math.max(0, Math.min(100, Math.round(level.progress * 100)));
   const publicName = (user?.displayName || displayName || "Earn Daily User").trim();
   const rankValue = rankLoaded ? (leaderboardRank ? `#${leaderboardRank}` : "Top 100+") : "...";
-  const rankHint = leaderboardRank ? "Your top users position" : "Earn more confirmed coins to enter top 100";
+  const rankHint = leaderboardRank ? "Your position in Top Users" : "Earn more confirmed coins to enter Top Users";
   const profileGradient = useMemo(
     () => themeKey === "daylight"
       ? ["#F7FFF9", "#E9F8EE", "#DDF6E5"] as const
@@ -150,20 +150,8 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.identityRow}>
-            <View style={styles.avatarColumn}>
-              <View style={[styles.profileAvatar, { backgroundColor: colors.background, borderColor: colors.gold + "66" }]}> 
-                <Text style={[styles.profileAvatarText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
-              </View>
-              <View style={styles.profileActions}>
-                <Pressable disabled style={[styles.avatarAction, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18" }]}> 
-                  <Feather name="edit-3" size={11} color={colors.gold} />
-                  <Text style={[styles.avatarActionText, { color: colors.gold }]}>Edit Avatar</Text>
-                </Pressable>
-                <Pressable onPress={() => router.push("/referral")} style={({ pressed }) => [styles.avatarAction, { borderColor: colors.green + "55", backgroundColor: colors.green + "18", opacity: pressed ? 0.72 : 1 }]}> 
-                  <Feather name="share-2" size={11} color={colors.green} />
-                  <Text style={[styles.avatarActionText, { color: colors.green }]}>Refer QR</Text>
-                </Pressable>
-              </View>
+            <View style={[styles.profileAvatar, { backgroundColor: colors.background, borderColor: colors.gold + "66" }]}> 
+              <Text style={[styles.profileAvatarText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
             </View>
             <View style={styles.identityCopy}>
               <Text style={[styles.profileName, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
@@ -175,6 +163,17 @@ export default function ProfileScreen() {
               <Text style={[styles.identitySub, { color: colors.mutedForeground }]} numberOfLines={2}>{statusSubtitle}</Text>
             </View>
           </View>
+
+          <View style={styles.profileActionsRow}>
+            <Pressable disabled style={[styles.profileActionButton, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18" }]}> 
+              <Feather name="edit-3" size={13} color={colors.gold} />
+              <Text style={[styles.profileActionText, { color: colors.gold }]}>Edit Avatar</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push("/referral")} style={({ pressed }) => [styles.profileActionButton, { borderColor: colors.green + "55", backgroundColor: colors.green + "18", opacity: pressed ? 0.72 : 1 }]}> 
+              <Feather name="share-2" size={13} color={colors.green} />
+              <Text style={[styles.profileActionText, { color: colors.green }]}>Refer QR</Text>
+            </Pressable>
+          </View>
         </LinearGradient>
 
         <View style={styles.balanceRow}>
@@ -183,16 +182,20 @@ export default function ProfileScreen() {
           <MiniMetric icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} color={colors.green} />
         </View>
 
-        <Pressable onPress={() => router.push("/leaderboard")} style={({ pressed }) => [styles.rankCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}> 
-          <View style={[styles.rankIcon, { backgroundColor: colors.gold + "18" }]}> 
-            <Feather name="award" size={19} color={colors.gold} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[styles.rankLabel, { color: colors.mutedForeground }]}>Top Users Rank</Text>
-            <Text style={[styles.rankHint, { color: colors.foreground }]} numberOfLines={1}>{rankHint}</Text>
-          </View>
-          <Text style={[styles.rankValue, { color: colors.gold }]}>{rankValue}</Text>
-        </Pressable>
+        <View style={styles.section}>
+          <SectionTitle title="Top Users" />
+          <Pressable onPress={() => router.push("/leaderboard")} style={({ pressed }) => [styles.topUsersPanel, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}> 
+            <View style={[styles.rankIcon, { backgroundColor: colors.gold + "18" }]}> 
+              <Feather name="award" size={20} color={colors.gold} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.rankLabel, { color: colors.mutedForeground }]}>Your Rank</Text>
+              <Text style={[styles.rankHint, { color: colors.foreground }]} numberOfLines={1}>{rankHint}</Text>
+            </View>
+            <Text style={[styles.rankValue, { color: colors.gold }]}>{rankValue}</Text>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
 
         <View style={styles.section}>
           <SectionTitle title="Personal details" />
@@ -266,20 +269,19 @@ const styles = StyleSheet.create({
   topActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   iconButton: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   identityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  avatarColumn: { alignItems: "center", gap: 8 },
   profileAvatar: { width: 76, height: 76, borderRadius: 999, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   profileAvatarText: { fontFamily: "Inter_800ExtraBold", fontSize: 25, lineHeight: 31 },
-  profileActions: { alignItems: "center", gap: 6 },
-  avatarAction: { minHeight: 28, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
-  avatarActionText: { fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 13 },
+  profileActionsRow: { flexDirection: "row", gap: 8, marginTop: 14 },
+  profileActionButton: { flex: 1, minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  profileActionText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
   identityCopy: { flex: 1, minWidth: 0 },
   profileName: { fontFamily: "Inter_800ExtraBold", fontSize: 22, lineHeight: 28 },
   profilePhone: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16, marginTop: 3 },
   statusPill: { alignSelf: "flex-start", minHeight: 28, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, marginTop: 9, flexDirection: "row", alignItems: "center", gap: 5 },
   statusPillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
   identitySub: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 8 },
-  balanceRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
-  rankCard: { minHeight: 66, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14, flexDirection: "row", alignItems: "center", gap: 10 },
+  balanceRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  topUsersPanel: { minHeight: 66, borderWidth: 1, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
   rankIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   rankLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15 },
   rankHint: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17, marginTop: 1 },
