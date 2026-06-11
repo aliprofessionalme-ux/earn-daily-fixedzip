@@ -59,6 +59,10 @@ function rankColor(rank?: number | null) {
 
 export function EarnDailyAvatar({ avatar, rank = null, size = 76 }: { avatar?: EquippedAvatar | null; rank?: number | null; size?: number }) {
   const merged = useMemo(() => mergeAvatar(avatar), [avatar]);
+  const ids = useMemo(() => {
+    const suffix = Math.random().toString(36).slice(2, 9);
+    return { bg: `avatarBg_${suffix}`, gold: `avatarGold_${suffix}` };
+  }, []);
   const skin = SKIN[merged.skinTone] ?? SKIN.skin_warm;
   const hair = HAIR[merged.hair] ?? HAIR.hair_clean;
   const outfit = OUTFIT[merged.outfit] ?? OUTFIT.outfit_basic;
@@ -71,24 +75,24 @@ export function EarnDailyAvatar({ avatar, rank = null, size = 76 }: { avatar?: E
   return (
     <Svg width={size} height={size} viewBox="0 0 120 120">
       <Defs>
-        <LinearGradient id="avatarBg" x1="0" y1="0" x2="1" y2="1">
+        <LinearGradient id={ids.bg} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor={bg.start} />
           <Stop offset="1" stopColor={bg.end} />
         </LinearGradient>
-        <LinearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+        <LinearGradient id={ids.gold} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor="#FFE68A" />
           <Stop offset="1" stopColor="#B8860B" />
         </LinearGradient>
       </Defs>
 
-      <Circle cx="60" cy="60" r="57" fill="url(#avatarBg)" />
+      <Circle cx="60" cy="60" r="57" fill={`url(#${ids.bg})`} />
       <Circle cx="84" cy="30" r="24" fill={bg.glow} opacity="0.22" />
       <Circle cx="34" cy="86" r="30" fill="#FFFFFF" opacity="0.14" />
 
       {royalRank ? (
         <G>
           <Rect x="20" y="54" width="80" height="52" rx="15" fill="#3A2507" opacity="0.94" />
-          <Rect x="26" y="48" width="68" height="20" rx="10" fill="url(#gold)" />
+          <Rect x="26" y="48" width="68" height="20" rx="10" fill={`url(#${ids.gold})`} />
           <Rect x="31" y="53" width="58" height="11" rx="6" fill="#1A1205" opacity="0.68" />
         </G>
       ) : seated ? (
@@ -121,8 +125,8 @@ export function EarnDailyAvatar({ avatar, rank = null, size = 76 }: { avatar?: E
 
       {royalRank ? (
         <G>
-          <Polygon points="40,27 48,13 57,27 65,12 73,27" fill="url(#gold)" />
-          <Rect x="39" y="26" width="35" height="8" rx="4" fill="url(#gold)" />
+          <Polygon points="40,27 48,13 57,27 65,12 73,27" fill={`url(#${ids.gold})`} />
+          <Rect x="39" y="26" width="35" height="8" rx="4" fill={`url(#${ids.gold})`} />
           <Circle cx="48" cy="15" r="3" fill="#FFF3BF" />
           <Circle cx="65" cy="14" r="3" fill="#FFF3BF" />
         </G>
