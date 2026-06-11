@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
+import { EarnDailyAvatar } from "@/components/EarnDailyAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
@@ -29,13 +30,6 @@ function formatCoins(n: number) {
 
 function formatPKR(n: number) {
   return "PKR " + n.toFixed(2);
-}
-
-function initialsFrom(name?: string | null, fallback?: string | null) {
-  const source = (name || fallback || "ED").trim();
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return source.slice(0, 2).toUpperCase();
 }
 
 export default function DashboardScreen() {
@@ -159,8 +153,8 @@ export default function DashboardScreen() {
               onPress={() => router.push("/(tabs)/profile")}
               style={({ pressed }) => [styles.profileTrigger, { opacity: pressed ? 0.72 : 1 }]}
             >
-              <View style={[styles.headerAvatar, { backgroundColor: colors.card, borderColor: colors.gold + "66" }]}> 
-                <Text style={[styles.avatarText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
+              <View style={styles.headerAvatar}> 
+                <EarnDailyAvatar avatar={user?.avatarEquipped} size={44} />
               </View>
               <View style={{ minWidth: 0 }}>
                 <Text style={[styles.profileEyebrow, { color: colors.mutedForeground }]}>Profile</Text>
@@ -289,8 +283,7 @@ const styles = StyleSheet.create({
   headerBg: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 },
   profileTrigger: { flexDirection: "row", alignItems: "center", gap: 9, flex: 1, minWidth: 0 },
-  headerAvatar: { width: 42, height: 42, borderRadius: 999, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontFamily: "Inter_800ExtraBold", fontSize: 14, lineHeight: 18 },
+  headerAvatar: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   profileEyebrow: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 14 },
   profileNameSmall: { fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 19, marginTop: 1 },
   refreshBtn: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
