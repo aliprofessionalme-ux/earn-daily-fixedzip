@@ -12,6 +12,7 @@ import {
   serializeDoc,
   serializeUser,
 } from "../services/firebase-admin.js";
+import { buyAvatarItem, equipAvatarItem, getAvatarState } from "../services/avatar.js";
 import { getTaskSlotStatus, unlockExtraTaskSlot } from "../services/taskSlots.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import {
@@ -46,6 +47,17 @@ const supportSchema = z.object({
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(40),
   phone: z.string().trim().max(30).optional().nullable(),
+});
+
+const avatarSlotSchema = z.enum(["skinTone", "hair", "outfit", "background", "frame", "seat"]);
+
+const avatarBuySchema = z.object({
+  itemId: z.string().trim().min(2).max(80),
+});
+
+const avatarEquipSchema = z.object({
+  slot: avatarSlotSchema,
+  itemId: z.string().trim().min(2).max(80),
 });
 
 const referralApplySchema = z.object({
@@ -154,6 +166,45 @@ router.patch("/:deviceId/profile", requireFirebaseAuth, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error updating profile");
     sendError(res, err, "Unable to update profile.");
+  }
+});
+
+router.get("/:deviceId/avatar", requireFirebaseAuth, async (req, res) => {
+  try {
+    res.json(await getAvatarState(String(req.params.deviceId)));
+  } catch (err) {
+    req.log.error({ err }, "Error fetching avatar state");
+    sendError(res, err, "Unable to load avatar.");
+  }
+});
+
+router.post("/:deviceId/avatar/buy", requireFirebaseAuth, async (req, res) => {
+  const parsed = avatarBuySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Choose a valid avatar item.", code: "invalid_avatar_item" });
+    return;
+  }
+
+  try {
+    res.json(await buyAvatarItem(String(req.params.deviceId), parsed.data.itemId));
+  } catch (err) {
+    req.log.error({ err }, "Error buying avatar item");
+    sendError(res, err, "Unable to buy avatar item.");
+  }
+});
+
+router.post("/:deviceId/avatar/equip", requireFirebaseAuth, async (req, res) => {
+  const parsed = avatarEquipSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Choose a valid avatar slot and item.", code: "invalid_avatar_equip" });
+    return;
+  }
+
+  try {
+    res.json(await equipAvatarItem(String(req.params.deviceId), parsed.data.slot, parsed.data.itemId));
+  } catch (err) {
+    req.log.error({ err }, "Error equipping avatar item");
+    sendError(res, err, "Unable to update avatar.");
   }
 });
 
