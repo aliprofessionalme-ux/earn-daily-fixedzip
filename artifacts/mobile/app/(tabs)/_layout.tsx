@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 
@@ -69,10 +69,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <Feather name="user" size={21} color={color} />
-          ),
+          href: null,
         }}
       />
     </Tabs>
