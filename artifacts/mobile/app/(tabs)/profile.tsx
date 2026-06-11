@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { EarnDailyAvatar } from "@/components/EarnDailyAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
@@ -20,13 +21,6 @@ function todayKey() {
 }
 
 function formatPKR(n: number) { return `PKR ${Number(n || 0).toFixed(2)}`; }
-
-function initialsFrom(name?: string | null, fallback?: string | null) {
-  const source = (name || fallback || "ED").trim();
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
 
 function BadgePill({ badge }: { badge: BadgeInfo }) {
   const colors = useColors();
@@ -150,8 +144,8 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.identityRow}>
-            <View style={[styles.profileAvatar, { backgroundColor: colors.background, borderColor: colors.gold + "66" }]}> 
-              <Text style={[styles.profileAvatarText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
+            <View style={styles.profileAvatarWrap}> 
+              <EarnDailyAvatar avatar={user?.avatarEquipped} rank={leaderboardRank} size={78} />
             </View>
             <View style={styles.identityCopy}>
               <Text style={[styles.profileName, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
@@ -165,7 +159,7 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.profileActionsRow}>
-            <Pressable disabled style={[styles.profileActionButton, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18" }]}> 
+            <Pressable onPress={() => router.push("/avatar")} style={({ pressed }) => [styles.profileActionButton, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18", opacity: pressed ? 0.72 : 1 }]}> 
               <Feather name="edit-3" size={13} color={colors.gold} />
               <Text style={[styles.profileActionText, { color: colors.gold }]}>Edit Avatar</Text>
             </Pressable>
@@ -269,8 +263,7 @@ const styles = StyleSheet.create({
   topActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   iconButton: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   identityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  profileAvatar: { width: 76, height: 76, borderRadius: 999, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  profileAvatarText: { fontFamily: "Inter_800ExtraBold", fontSize: 25, lineHeight: 31 },
+  profileAvatarWrap: { width: 78, height: 78, alignItems: "center", justifyContent: "center" },
   profileActionsRow: { flexDirection: "row", gap: 8, marginTop: 14 },
   profileActionButton: { flex: 1, minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   profileActionText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
