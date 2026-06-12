@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
-import { EarnDailyAvatar } from "@/components/EarnDailyAvatar";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
@@ -23,6 +23,7 @@ import { CompactStatCard } from "@/components/CompactStatCard";
 import { SummaryRow } from "@/components/SummaryRow";
 import { SectionTitle } from "@/components/SectionTitle";
 import { getAppSettings } from "@/services/api";
+import { getProfilePhotoUri } from "@/services/profilePhoto";
 
 function formatCoins(n: number) {
   return n.toLocaleString();
@@ -41,6 +42,7 @@ export default function DashboardScreen() {
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [coinRate, setCoinRate] = useState({ coins: 1000, pkr: 20 });
+  const [profilePhotoUri, setProfilePhotoUriState] = useState<string | null>(null);
 
   const isDaylight = themeKey === "daylight";
   const headerGradient = useMemo(
@@ -63,6 +65,12 @@ export default function DashboardScreen() {
         },
     [isDaylight],
   );
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getProfilePhotoUri().then((uri) => { if (active) setProfilePhotoUriState(uri); }).catch(() => {});
+    return () => { active = false; };
+  }, []));
 
   useEffect(() => {
     let cancelled = false;
@@ -154,7 +162,7 @@ export default function DashboardScreen() {
               style={({ pressed }) => [styles.profileTrigger, { opacity: pressed ? 0.72 : 1 }]}
             >
               <View style={styles.headerAvatar}> 
-                <EarnDailyAvatar avatar={user?.avatarEquipped} size={44} />
+                <ProfilePhotoAvatar uri={profilePhotoUri} name={publicName} fallback={deviceId} size={44} />
               </View>
               <View style={{ minWidth: 0 }}>
                 <Text style={[styles.profileEyebrow, { color: colors.mutedForeground }]}>Profile</Text>
