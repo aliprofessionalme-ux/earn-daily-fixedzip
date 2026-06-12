@@ -265,7 +265,6 @@ export async function getLeaderboard(limit = 50) {
         energyBalance: numberValue(user.energyBalance),
         currentDailyStreak: numberValue(user.currentDailyStreak),
         dailyTasksCompletedToday: numberValue(user.dailyTasksCompletedToday),
-        avatarEquipped: user.avatarEquipped ?? null,
         lastActiveAt: user.lastActiveAt ?? user.updatedAt ?? null,
         isBanned: Boolean(user.isBanned),
       };
