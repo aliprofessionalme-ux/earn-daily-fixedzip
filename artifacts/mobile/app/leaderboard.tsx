@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { EarnDailyAvatar } from "@/components/EarnDailyAvatar";
 import { useColors } from "@/hooks/useColors";
 import { getLeaderboard, type LeaderboardUser } from "@/services/api";
 import { getUnlockedBadges, getUserLevel, type BadgeIcon } from "@/utils/badges";
@@ -84,11 +83,8 @@ export default function LeaderboardScreen() {
 
             return (
               <View style={[styles.row, { backgroundColor: colors.card, borderColor: item.rank <= 3 ? medal(item.rank) : colors.border }]}> 
-                <View style={styles.avatarStack}> 
-                  <EarnDailyAvatar avatar={item.avatarEquipped} rank={item.rank} size={52} />
-                  <View style={[styles.rankBadge, { backgroundColor: medal(item.rank), borderColor: colors.card }]}> 
-                    <Text style={[styles.rankText, { color: item.rank <= 3 ? "#111827" : colors.foreground }]}>{item.rank}</Text>
-                  </View>
+                <View style={[styles.rank, { backgroundColor: medal(item.rank) }]}> 
+                  <Text style={[styles.rankText, { color: item.rank <= 3 ? "#111827" : colors.foreground }]}>{item.rank}</Text>
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>{item.displayName}</Text>
@@ -130,9 +126,8 @@ const styles = StyleSheet.create({
   retry: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
   retryText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   row: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 10 },
-  avatarStack: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
-  rankBadge: { position: "absolute", right: -3, bottom: -2, minWidth: 22, height: 22, borderRadius: 999, borderWidth: 2, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  rankText: { fontFamily: "Inter_800ExtraBold", fontSize: 10, lineHeight: 13 },
+  rank: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  rankText: { fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 19 },
   name: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   masked: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 2 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 7 },
