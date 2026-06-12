@@ -1,16 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { EarnDailyAvatar } from "@/components/EarnDailyAvatar";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { SectionTitle } from "@/components/SectionTitle";
 import { getLeaderboard, type LeaderboardUser } from "@/services/api";
+import { getProfilePhotoUri } from "@/services/profilePhoto";
 import { getUnlockedBadges, getUserLevel, type BadgeIcon, type BadgeInfo } from "@/utils/badges";
 
 type RankedUser = LeaderboardUser & { deviceId?: string };
@@ -53,6 +54,7 @@ export default function ProfileScreen() {
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [profilePhotoUri, setProfilePhotoUriState] = useState<string | null>(null);
   const [savingName, setSavingName] = useState(false);
   const [nameNotice, setNameNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
@@ -60,6 +62,11 @@ export default function ProfileScreen() {
 
   useEffect(() => { setDisplayName(user?.displayName ?? ""); }, [user?.displayName]);
   useEffect(() => { setPhone(user?.phone ?? ""); }, [user?.phone]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getProfilePhotoUri().then((uri) => { if (active) setProfilePhotoUriState(uri); }).catch(() => {});
+    return () => { active = false; };
+  }, []));
   useEffect(() => {
     let cancelled = false;
     if (!deviceId) {
@@ -145,7 +152,7 @@ export default function ProfileScreen() {
 
           <View style={styles.identityRow}>
             <View style={styles.profileAvatarWrap}> 
-              <EarnDailyAvatar avatar={user?.avatarEquipped} rank={leaderboardRank} size={78} />
+              <ProfilePhotoAvatar uri={profilePhotoUri} name={publicName} fallback={deviceId} size={78} />
             </View>
             <View style={styles.identityCopy}>
               <Text style={[styles.profileName, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
@@ -160,8 +167,8 @@ export default function ProfileScreen() {
 
           <View style={styles.profileActionsRow}>
             <Pressable onPress={() => router.push("/avatar")} style={({ pressed }) => [styles.profileActionButton, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18", opacity: pressed ? 0.72 : 1 }]}> 
-              <Feather name="edit-3" size={13} color={colors.gold} />
-              <Text style={[styles.profileActionText, { color: colors.gold }]}>Edit Avatar</Text>
+              <Feather name="image" size={13} color={colors.gold} />
+              <Text style={[styles.profileActionText, { color: colors.gold }]}>Edit Photo</Text>
             </Pressable>
             <Pressable onPress={() => router.push("/referral")} style={({ pressed }) => [styles.profileActionButton, { borderColor: colors.green + "55", backgroundColor: colors.green + "18", opacity: pressed ? 0.72 : 1 }]}> 
               <Feather name="share-2" size={13} color={colors.green} />
