@@ -143,7 +143,7 @@ export const SubmitWithdrawalParams = zod.object({
 })
 
 export const SubmitWithdrawalBody = zod.object({
-  "paymentMethod": zod.enum(['Easypaisa', 'JazzCash']),
+  "paymentMethod": zod.enum(['Easypaisa', 'JazzCash', 'SadaPay', 'Bybit']),
   "accountNumber": zod.string(),
   "accountTitle": zod.string(),
   "amountPKR": zod.number()
