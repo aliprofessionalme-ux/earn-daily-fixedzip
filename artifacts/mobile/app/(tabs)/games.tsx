@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
+import { CoinRushGame } from "@/components/CoinRushGame";
 import { GameAdGate } from "@/components/GameAdGate";
 import type { RewardResult } from "@/services/api";
 
@@ -30,6 +31,8 @@ const SCRATCH_REWARDS = [1, 2, 3, 4, 6, 10] as const;
 const SPIN_COLORS = ["#EC4899", "#F59E0B", "#3B82F6", "#8B5CF6", "#10B981", "#EF4444"];
 const SCRATCH_LIMIT = 5;
 const SPIN_LIMIT = 5;
+
+type GameTab = "rush" | "spin" | "scratch";
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
   const angle = ((angleDeg - 90) * Math.PI) / 180;
@@ -222,8 +225,8 @@ export default function GamesScreen() {
   const colors = useColors();
   const { themeKey } = useTheme();
   const insets = useSafeAreaInsets();
-  const { user, spin, scratch } = useUser();
-  const [activeTab, setActiveTab] = useState<"spin" | "scratch">("spin");
+  const { user, spin, scratch, startCoinRushGame } = useUser();
+  const [activeTab, setActiveTab] = useState<GameTab>("rush");
 
   const isDaylight = themeKey === "daylight";
   const screenGradient = useMemo(
@@ -240,11 +243,16 @@ export default function GamesScreen() {
   const scratchesUsed = user?.lastScratchResetDate === new Date().toISOString().split("T")[0] ? user?.dailyScratchUsed ?? 0 : 0;
   const spinsLeft = Math.max(0, SPIN_LIMIT - spinsUsed);
   const scratchLeft = Math.max(0, SCRATCH_LIMIT - scratchesUsed);
+  const energyBalance = user?.energyBalance ?? 0;
 
-  const activeDescription = useMemo(() => activeTab === "spin" ? "Spin the wheel to earn random Energy for app benefits." : "Tap to reveal and earn random Energy rewards.", [activeTab]);
+  const activeDescription = useMemo(() => {
+    if (activeTab === "rush") return "Spend Energy on a fast score run. No wallet coins are awarded.";
+    if (activeTab === "spin") return "Spin the wheel to earn random Energy for app benefits.";
+    return "Tap to reveal and earn random Energy rewards.";
+  }, [activeTab]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}> 
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <LinearGradient colors={screenGradient} style={StyleSheet.absoluteFillObject} />
       <View style={[styles.bgGlowA, { backgroundColor: isDaylight ? "rgba(56,189,248,0.16)" : "rgba(124,58,237,0.16)" }]} />
       <View style={[styles.bgGlowB, { backgroundColor: isDaylight ? "rgba(217,154,5,0.12)" : "rgba(245,158,11,0.12)" }]} />
@@ -254,26 +262,32 @@ export default function GamesScreen() {
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{activeDescription}</Text>
 
         <View style={[styles.tabs, { borderColor: colors.border, backgroundColor: panelSurface }]}>
-          {(["spin", "scratch"] as const).map((tab) => (
+          {(["rush", "spin", "scratch"] as const).map((tab) => (
             <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.tabButton, activeTab === tab && { backgroundColor: colors.primary }]}>
-              <Text style={[styles.tabText, { color: activeTab === tab ? activeTabTextColor : colors.mutedForeground }]}>{tab === "spin" ? "Spin" : "Scratch"}</Text>
+              <Text style={[styles.tabText, { color: activeTab === tab ? activeTabTextColor : colors.mutedForeground }]}>{tab === "rush" ? "Rush" : tab === "spin" ? "Spin" : "Scratch"}</Text>
             </Pressable>
           ))}
         </View>
 
         <View style={styles.limitRow}>
-          <View style={[styles.limitBadge, { borderColor: colors.purple + "44", backgroundColor: softSurface }]}>
-            <Feather name="zap" size={14} color={colors.purple} />
+          <View style={[styles.limitBadge, { borderColor: colors.gold + "44", backgroundColor: softSurface }]}> 
+            <Feather name="zap" size={14} color={colors.gold} />
+            <Text style={[styles.limitText, { color: colors.gold }]}>{energyBalance} energy</Text>
+          </View>
+          <View style={[styles.limitBadge, { borderColor: colors.purple + "44", backgroundColor: softSurface }]}> 
+            <Feather name="rotate-cw" size={14} color={colors.purple} />
             <Text style={[styles.limitText, { color: colors.purple }]}>{spinsLeft}/5 spins left</Text>
           </View>
-          <View style={[styles.limitBadge, { borderColor: colors.blue + "44", backgroundColor: softSurface }]}>
+          <View style={[styles.limitBadge, { borderColor: colors.blue + "44", backgroundColor: softSurface }]}> 
             <Feather name="layers" size={14} color={colors.blue} />
             <Text style={[styles.limitText, { color: colors.blue }]}>{scratchLeft}/5 scratches left</Text>
           </View>
         </View>
 
-        <View style={[styles.cardFrame, { borderColor: cardBorder, backgroundColor: panelSurface }]}>
-          {activeTab === "spin" ? (
+        <View style={[styles.cardFrame, { borderColor: cardBorder, backgroundColor: panelSurface }]}> 
+          {activeTab === "rush" ? (
+            <CoinRushGame energy={energyBalance} onStartGame={startCoinRushGame} />
+          ) : activeTab === "spin" ? (
             <SpinWheel disabled={spinsLeft <= 0} onBackendSpin={spin} />
           ) : (
             <ScratchCard disabled={scratchLeft <= 0} onBackendScratch={scratch} />
@@ -282,9 +296,9 @@ export default function GamesScreen() {
 
         <GameAdGate spinsLeft={spinsLeft} scratchLeft={scratchLeft} />
 
-        <View style={[styles.infoBox, { borderColor: colors.border, backgroundColor: panelSurface }]}>
-          <Feather name="zap" size={18} color={colors.gold} />
-          <Text style={[styles.infoText, { color: colors.mutedForeground }]}>Spin and Scratch now earn random Energy only. Energy unlocks extra task slots and app benefits. It cannot be withdrawn.</Text>
+        <View style={[styles.infoBox, { borderColor: colors.border, backgroundColor: panelSurface }]}> 
+          <Feather name="shield" size={18} color={colors.gold} />
+          <Text style={[styles.infoText, { color: colors.mutedForeground }]}>Coin Rush spends Energy for score only. Spin and Scratch earn random Energy. Energy unlocks extra task slots and app benefits. It cannot be withdrawn.</Text>
         </View>
       </ScrollView>
     </View>
