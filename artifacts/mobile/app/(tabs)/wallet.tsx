@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  type KeyboardTypeOptions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -18,12 +19,27 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
-import { getAppSettings, getWithdrawals, type WithdrawalDocument } from "@/services/api";
+import { getAppSettings, getWithdrawals, type WithdrawalDocument, type WithdrawalPaymentMethod } from "@/services/api";
 import { CompactStatCard } from "@/components/CompactStatCard";
 
-const PAYMENT_METHODS = ["Easypaisa", "JazzCash"] as const;
+type PaymentMethod = WithdrawalPaymentMethod;
+type PaymentMethodOption = { id: PaymentMethod; label: string; icon: React.ComponentProps<typeof Feather>["name"] };
+type PaymentMethodConfig = {
+  accountLabel: string;
+  accountPlaceholder: string;
+  titleLabel: string;
+  titlePlaceholder: string;
+  keyboardType: KeyboardTypeOptions;
+  note?: string;
+};
+
+const PAYMENT_METHODS: PaymentMethodOption[] = [
+  { id: "Easypaisa", label: "Easypaisa", icon: "smartphone" },
+  { id: "JazzCash", label: "JazzCash", icon: "smartphone" },
+  { id: "SadaPay", label: "SadaPay", icon: "credit-card" },
+  { id: "Bybit", label: "Bybit", icon: "globe" },
+];
 const FALLBACK_MIN_WITHDRAWAL_PKR = 500;
-type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 type WithdrawalFilter = "all" | WithdrawalDocument["status"];
 
 const HISTORY_FILTERS: Array<{ id: WithdrawalFilter; label: string }> = [
@@ -34,6 +50,35 @@ const HISTORY_FILTERS: Array<{ id: WithdrawalFilter; label: string }> = [
   { id: "paid", label: "Paid" },
   { id: "rejected", label: "Rejected" },
 ];
+
+function getPaymentMethodConfig(method: PaymentMethod): PaymentMethodConfig {
+  if (method === "Bybit") {
+    return {
+      accountLabel: "Bybit UID / Email",
+      accountPlaceholder: "Enter Bybit UID or email",
+      titleLabel: "Bybit Account Name",
+      titlePlaceholder: "Name on your Bybit account",
+      keyboardType: "default",
+      note: "Crypto withdrawals are Bybit only. Enter your Bybit UID or account email carefully.",
+    };
+  }
+  if (method === "SadaPay") {
+    return {
+      accountLabel: "SadaPay Number",
+      accountPlaceholder: "03xxxxxxxxx",
+      titleLabel: "Account Title",
+      titlePlaceholder: "Name on SadaPay account",
+      keyboardType: "phone-pad",
+    };
+  }
+  return {
+    accountLabel: "Wallet Number",
+    accountPlaceholder: "03xxxxxxxxx",
+    titleLabel: "Account Title",
+    titlePlaceholder: `Name on ${method} account`,
+    keyboardType: "phone-pad",
+  };
+}
 
 function formatPKR(n: number) {
   return "PKR " + Number(n || 0).toFixed(2);
@@ -163,6 +208,7 @@ export default function WalletScreen() {
   );
   const activeButtonText = isDaylight ? "#05131F" : "#FFFFFF";
   const submitGradient = isDaylight ? [colors.primary, "#0284C7"] as [string, string] : [colors.primary, colors.purpleDark] as [string, string];
+  const selectedPaymentConfig = useMemo(() => getPaymentMethodConfig(paymentMethod), [paymentMethod]);
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const confirmed = user?.confirmedCoinsBalance ?? user?.coinsBalance ?? 0;
@@ -211,7 +257,7 @@ export default function WalletScreen() {
       return;
     }
     if (!accountNumber.trim() || !accountTitle.trim() || !Number.isFinite(amount)) {
-      setMessage({ text: "Enter account number, title and valid amount.", ok: false });
+      setMessage({ text: "Enter valid account details and amount.", ok: false });
       return;
     }
     if (amount < (minWithdrawal || FALLBACK_MIN_WITHDRAWAL_PKR)) {
@@ -275,18 +321,52 @@ export default function WalletScreen() {
 
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Payment Method</Text>
           <View style={styles.methodRow}>
-            {PAYMENT_METHODS.map((m) => (
-              <Pressable key={m} onPress={() => setPaymentMethod(m)} style={[styles.methodBtn, { backgroundColor: paymentMethod === m ? colors.primary : colors.card, borderColor: paymentMethod === m ? colors.primary : colors.border }]}> 
-                <Text style={[styles.methodBtnText, { color: paymentMethod === m ? activeButtonText : colors.mutedForeground }]}>{m}</Text>
-              </Pressable>
-            ))}
+            {PAYMENT_METHODS.map((method) => {
+              const active = paymentMethod === method.id;
+              return (
+                <Pressable
+                  key={method.id}
+                  onPress={() => setPaymentMethod(method.id)}
+                  style={[
+                    styles.methodBtn,
+                    { backgroundColor: active ? colors.primary : colors.card, borderColor: active ? colors.primary : colors.border },
+                  ]}
+                >
+                  <Feather name={method.icon} size={15} color={active ? activeButtonText : colors.mutedForeground} />
+                  <Text style={[styles.methodBtnText, { color: active ? activeButtonText : colors.mutedForeground }]}>{method.label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>Account Number</Text>
-          <TextInput value={accountNumber} onChangeText={setAccountNumber} placeholder="03xxxxxxxxx" placeholderTextColor={colors.mutedForeground} keyboardType="phone-pad" style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]} />
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>{selectedPaymentConfig.accountLabel}</Text>
+          <TextInput
+            value={accountNumber}
+            onChangeText={setAccountNumber}
+            placeholder={selectedPaymentConfig.accountPlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType={selectedPaymentConfig.keyboardType}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+          />
 
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>Account Title</Text>
-          <TextInput value={accountTitle} onChangeText={setAccountTitle} placeholder="Your full name" placeholderTextColor={colors.mutedForeground} style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]} />
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>{selectedPaymentConfig.titleLabel}</Text>
+          <TextInput
+            value={accountTitle}
+            onChangeText={setAccountTitle}
+            placeholder={selectedPaymentConfig.titlePlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="words"
+            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+          />
+
+          {selectedPaymentConfig.note ? (
+            <View style={[styles.infoBanner, { backgroundColor: colors.gold + "12", borderColor: colors.gold + "28" }]}> 
+              <Feather name="info" size={16} color={colors.gold} />
+              <Text style={[styles.infoBannerText, { color: colors.gold }]}>{selectedPaymentConfig.note}</Text>
+            </View>
+          ) : null}
 
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Amount (PKR)</Text>
           <TextInput value={amountPKR} onChangeText={setAmountPKR} placeholder={String(minWithdrawal || FALLBACK_MIN_WITHDRAWAL_PKR)} placeholderTextColor={colors.mutedForeground} keyboardType="number-pad" style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]} />
@@ -395,9 +475,9 @@ const styles = StyleSheet.create({
   infoBannerText: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 16, flex: 1 },
   label: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 6 },
   input: { borderWidth: 1, borderRadius: 12, padding: 12, fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 18 },
-  methodRow: { flexDirection: "row", gap: 10 },
-  methodBtn: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: "center" },
-  methodBtnText: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
+  methodRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  methodBtn: { flexBasis: "47%", flexGrow: 1, minHeight: 58, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 4 },
+  methodBtnText: { fontFamily: "Inter_700Bold", fontSize: 12.5, lineHeight: 16 },
   msgText: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, textAlign: "center", marginTop: 6 },
   submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 14, marginTop: 12 },
   submitBtnText: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19, color: "#fff" },

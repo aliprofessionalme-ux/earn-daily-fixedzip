@@ -65,6 +65,8 @@ export type WithdrawalRequestPaymentMethod = typeof WithdrawalRequestPaymentMeth
 export const WithdrawalRequestPaymentMethod = {
   Easypaisa: 'Easypaisa',
   JazzCash: 'JazzCash',
+  SadaPay: 'SadaPay',
+  Bybit: 'Bybit',
 } as const;
 
 export interface WithdrawalRequest {

@@ -20,6 +20,7 @@ import {
   type RewardResult,
   type TaskSlotStatus,
   type UserDocument,
+  type WithdrawalPaymentMethod,
 } from "@/services/api";
 
 const ONBOARDING_KEY = "engage_earn_onboarding_complete";
@@ -43,7 +44,7 @@ interface UserContextType {
   spin: () => Promise<RewardResult>;
   scratch: () => Promise<RewardResult>;
   startCoinRushGame: () => Promise<CoinRushStartResult>;
-  submitWithdrawal: (payload: { paymentMethod: "Easypaisa" | "JazzCash"; accountNumber: string; accountTitle: string; amountPKR: number }) => Promise<{ success: boolean; message: string; withdrawalId: string }>;
+  submitWithdrawal: (payload: { paymentMethod: WithdrawalPaymentMethod; accountNumber: string; accountTitle: string; amountPKR: number }) => Promise<{ success: boolean; message: string; withdrawalId: string }>;
   recordUnityRewardedComplete: (placementId?: string) => Promise<RewardResult>;
   recordUnityInterstitialShown: (placementId?: string) => Promise<{ success: boolean; message: string }>;
   unlockExtraTaskSlot: () => Promise<{ success: boolean; message: string; energyAfter: number; extraSlots: number; taskSlots: TaskSlotStatus }>;
@@ -154,7 +155,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return result;
   }, [refreshUser, requireDeviceId]);
 
-  const submitWithdrawal = useCallback(async (payload: { paymentMethod: "Easypaisa" | "JazzCash"; accountNumber: string; accountTitle: string; amountPKR: number }) => {
+  const submitWithdrawal = useCallback(async (payload: { paymentMethod: WithdrawalPaymentMethod; accountNumber: string; accountTitle: string; amountPKR: number }) => {
     const result = await apiSubmitWithdrawal(requireDeviceId(), payload);
     await refreshUser();
     return result;
