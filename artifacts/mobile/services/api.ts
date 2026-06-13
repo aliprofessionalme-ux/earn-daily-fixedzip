@@ -136,10 +136,12 @@ export interface CoinRushStartResult {
   energyAfter: number;
 }
 
+export type WithdrawalPaymentMethod = "Easypaisa" | "JazzCash" | "SadaPay" | "Bybit";
+
 export interface WithdrawalDocument {
   withdrawalId: string;
   deviceId: string;
-  paymentMethod: "Easypaisa" | "JazzCash";
+  paymentMethod: WithdrawalPaymentMethod;
   accountNumber: string;
   accountTitle: string;
   amountPKR: number;
@@ -453,7 +455,7 @@ export async function getWithdrawals(deviceId: string): Promise<WithdrawalDocume
 }
 
 export async function submitWithdrawal(deviceId: string, payload: {
-  paymentMethod: "Easypaisa" | "JazzCash";
+  paymentMethod: WithdrawalPaymentMethod;
   accountNumber: string;
   accountTitle: string;
   amountPKR: number;
