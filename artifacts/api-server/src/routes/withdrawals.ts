@@ -5,9 +5,10 @@ import { requireFirebaseAuth } from "../middleware/auth.js";
 import { getWithdrawalEligibility } from "../services/progress.js";
 
 const router = Router({ mergeParams: true });
+const WITHDRAWAL_PAYMENT_METHODS = ["Easypaisa", "JazzCash", "SadaPay", "Bybit"] as const;
 
 const withdrawalSchema = z.object({
-  paymentMethod: z.enum(["Easypaisa", "JazzCash"]),
+  paymentMethod: z.enum(WITHDRAWAL_PAYMENT_METHODS),
   accountNumber: z.string().min(5),
   accountTitle: z.string().min(2),
   amountPKR: z.number().int().positive(),
@@ -68,7 +69,8 @@ router.post("/", requireFirebaseAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(await submitWithdrawal(deviceId, parsed.data));
+    const withdrawalInput = parsed.data as Parameters<typeof submitWithdrawal>[1];
+    res.json(await submitWithdrawal(deviceId, withdrawalInput));
   } catch (err) {
     req.log.error({ err }, "Error submitting withdrawal");
     sendError(res, err, "Unable to submit withdrawal.");
