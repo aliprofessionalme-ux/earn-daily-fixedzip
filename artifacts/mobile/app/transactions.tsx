@@ -21,6 +21,7 @@ const TYPE_LABELS: Record<TransactionType, string> = {
   withdrawal_refund: "Withdrawal Refund",
   admin_adjustment: "Admin Adjustment",
   energy_purchase_slot: "Extra Task Slot",
+  game_energy_spend: "Coin Rush Entry",
   referral_bonus: "Referral Bonus",
 };
 
@@ -35,6 +36,7 @@ function getIconForType(type: string): React.ComponentProps<typeof Feather>["nam
   if (type.includes("checkin")) return "sun";
   if (type.includes("spin")) return "zap";
   if (type.includes("scratch")) return "layers";
+  if (type.includes("game")) return "target";
   if (type.includes("referral")) return "users";
   if (type.includes("offerwall")) return "gift";
   if (type.includes("unity")) return "film";

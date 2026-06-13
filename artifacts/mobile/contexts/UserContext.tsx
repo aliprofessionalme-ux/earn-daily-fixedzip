@@ -9,12 +9,14 @@ import {
   initUser as apiInitUser,
   scratch as apiScratch,
   spin as apiSpin,
+  startCoinRushGame as apiStartCoinRushGame,
   submitWithdrawal as apiSubmitWithdrawal,
   recordUnityRewardedComplete as apiRecordUnityRewarded,
   recordUnityInterstitialShown as apiRecordUnityInterstitial,
   unlockExtraTaskSlot as apiUnlockExtraTaskSlot,
   updateUserProfile as apiUpdateUserProfile,
   setApiFirebaseToken,
+  type CoinRushStartResult,
   type RewardResult,
   type TaskSlotStatus,
   type UserDocument,
@@ -40,6 +42,7 @@ interface UserContextType {
   checkIn: () => Promise<RewardResult>;
   spin: () => Promise<RewardResult>;
   scratch: () => Promise<RewardResult>;
+  startCoinRushGame: () => Promise<CoinRushStartResult>;
   submitWithdrawal: (payload: { paymentMethod: "Easypaisa" | "JazzCash"; accountNumber: string; accountTitle: string; amountPKR: number }) => Promise<{ success: boolean; message: string; withdrawalId: string }>;
   recordUnityRewardedComplete: (placementId?: string) => Promise<RewardResult>;
   recordUnityInterstitialShown: (placementId?: string) => Promise<{ success: boolean; message: string }>;
@@ -145,6 +148,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return result;
   }, [refreshUser, requireDeviceId]);
 
+  const startCoinRushGame = useCallback(async () => {
+    const result = await apiStartCoinRushGame(requireDeviceId());
+    await refreshUser();
+    return result;
+  }, [refreshUser, requireDeviceId]);
+
   const submitWithdrawal = useCallback(async (payload: { paymentMethod: "Easypaisa" | "JazzCash"; accountNumber: string; accountTitle: string; amountPKR: number }) => {
     const result = await apiSubmitWithdrawal(requireDeviceId(), payload);
     await refreshUser();
@@ -190,11 +199,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     checkIn,
     spin,
     scratch,
+    startCoinRushGame,
     submitWithdrawal,
     recordUnityRewardedComplete,
     recordUnityInterstitialShown,
     unlockExtraTaskSlot,
-  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, initialize, isLoading, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, spin, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
+  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, initialize, isLoading, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, spin, startCoinRushGame, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

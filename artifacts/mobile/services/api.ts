@@ -129,6 +129,13 @@ export interface RewardResult {
   rewardSegments?: readonly number[];
 }
 
+export interface CoinRushStartResult {
+  success: boolean;
+  message: string;
+  energyCost: number;
+  energyAfter: number;
+}
+
 export interface WithdrawalDocument {
   withdrawalId: string;
   deviceId: string;
@@ -217,6 +224,7 @@ export type TransactionType =
   | "withdrawal_refund"
   | "admin_adjustment"
   | "energy_purchase_slot"
+  | "game_energy_spend"
   | "referral_bonus";
 
 export interface TransactionDocument {
@@ -430,6 +438,10 @@ export async function spin(deviceId: string): Promise<RewardResult> {
 
 export async function scratch(deviceId: string): Promise<RewardResult> {
   return apiFetch<RewardResult>(`/users/${encodeURIComponent(deviceId)}/scratch`, { method: "POST", body: JSON.stringify({}) });
+}
+
+export async function startCoinRushGame(deviceId: string): Promise<CoinRushStartResult> {
+  return apiFetch<CoinRushStartResult>(`/users/${encodeURIComponent(deviceId)}/games/coin-rush/start`, { method: "POST", body: JSON.stringify({}) });
 }
 
 export async function getTransactions(deviceId: string): Promise<TransactionDocument[]> {
