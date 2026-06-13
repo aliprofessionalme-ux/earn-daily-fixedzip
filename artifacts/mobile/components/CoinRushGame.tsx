@@ -32,11 +32,13 @@ function nextTarget(id: number): RushTarget {
 function targetMeta(kind: RushTargetKind) {
   if (kind === "trap") return { icon: "x-circle" as const, label: "Avoid", points: -20, colors: ["#F97316", "#EF4444"] as [string, string] };
   if (kind === "gem") return { icon: "star" as const, label: "+20", points: 20, colors: ["#22D3EE", "#3B82F6"] as [string, string] };
-  return { icon: "dollar-sign" as const, label: "+10", points: 10, colors: ["#FDE68A", "#F59E0B"] as [string, string] };
+  return { icon: "target" as const, label: "+10", points: 10, colors: ["#FDE68A", "#F59E0B"] as [string, string] };
 }
 
 function readableError(error: unknown) {
-  return error instanceof Error ? error.message : "Unable to start Coin Rush. Please try again.";
+  const message = error instanceof Error ? error.message : "Unable to start Coin Rush. Please try again.";
+  if (message.includes("404")) return "Backend update pending. Redeploy the latest AWS backend, then try again.";
+  return message;
 }
 
 export function CoinRushGame({
@@ -57,7 +59,7 @@ export function CoinRushGame({
   const [combo, setCombo] = useState(0);
   const [bestScore, setBestScore] = useState(0);
   const [target, setTarget] = useState<RushTarget | null>(null);
-  const [message, setMessage] = useState("Spend Energy, chase score, and keep wallet coins untouched.");
+  const [message, setMessage] = useState("Tap the glowing lane. Score only, no coins or PKR.");
 
   const canStart = energy >= RUSH_ENERGY_COST;
   const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.08] });
@@ -166,31 +168,40 @@ export function CoinRushGame({
 
   const statusCards = useMemo(() => ([
     { label: "Energy", value: String(energy), icon: "zap" as const, color: colors.gold },
-    { label: "Cost", value: `${RUSH_ENERGY_COST}E`, icon: "unlock" as const, color: colors.purple },
+    { label: "Entry", value: `${RUSH_ENERGY_COST}E`, icon: "unlock" as const, color: colors.purple },
     { label: "Best", value: String(bestScore), icon: "award" as const, color: colors.green },
   ]), [bestScore, colors.gold, colors.green, colors.purple, energy]);
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={[styles.eyebrow, { color: colors.gold }]}>ENERGY GAME</Text>
-          <Text style={[styles.title, { color: colors.foreground }]}>Coin Rush</Text>
-        </View>
-        <View style={[styles.timerPill, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-          <Feather name="clock" size={14} color={colors.gold} />
-          <Text style={[styles.timerText, { color: colors.foreground }]}>{timeLeft}s</Text>
+      <View style={styles.heroPanel}>
+        <LinearGradient colors={["rgba(245,158,11,0.20)", "rgba(124,58,237,0.14)", "rgba(15,23,42,0.05)"]} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.eyebrow, { color: colors.gold }]}>ENERGY GAME</Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>Coin Rush</Text>
+            <Text style={[styles.subline, { color: colors.mutedForeground }]}>Fast lane taps. Score only.</Text>
+          </View>
+          <View style={[styles.timerPill, { borderColor: colors.gold + "55", backgroundColor: colors.card }]}> 
+            <Feather name="clock" size={14} color={colors.gold} />
+            <Text style={[styles.timerText, { color: colors.foreground }]}>{timeLeft}s</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.statusGrid}>
         {statusCards.map((item) => (
-          <View key={item.label} style={[styles.statusCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-            <Feather name={item.icon} size={14} color={item.color} />
+          <View key={item.label} style={[styles.statusCard, { borderColor: item.color + "44", backgroundColor: colors.card }]}> 
+            <Feather name={item.icon} size={15} color={item.color} />
             <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
             <Text style={[styles.statusLabel, { color: colors.mutedForeground }]}>{item.label}</Text>
           </View>
         ))}
+      </View>
+
+      <View style={[styles.instructionStrip, { borderColor: colors.gold + "33", backgroundColor: colors.card }]}> 
+        <Feather name="target" size={15} color={colors.gold} />
+        <Text style={[styles.instructionText, { color: colors.foreground }]}>Tap the lit lane. Hit gold/blue targets, avoid red traps.</Text>
       </View>
 
       <View style={[styles.scoreBoard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
@@ -198,7 +209,7 @@ export function CoinRushGame({
           <Text style={[styles.scoreLabel, { color: colors.mutedForeground }]}>Score</Text>
           <Text style={[styles.scoreValue, { color: colors.foreground }]}>{score}</Text>
         </View>
-        <View style={styles.comboBox}>
+        <View style={[styles.comboBox, { backgroundColor: colors.gold + "18" }]}> 
           <Feather name="activity" size={14} color={colors.gold} />
           <Text style={[styles.comboText, { color: colors.gold }]}>Combo x{combo}</Text>
         </View>
@@ -214,37 +225,51 @@ export function CoinRushGame({
               onPress={() => tapLane(lane)}
               style={({ pressed }) => [
                 styles.lane,
-                { borderColor: active ? colors.gold : colors.border, backgroundColor: colors.card, opacity: pressed ? 0.92 : 1 },
+                {
+                  borderColor: active ? colors.gold : colors.border,
+                  backgroundColor: active ? colors.gold + "12" : colors.card,
+                  opacity: pressed ? 0.92 : 1,
+                },
               ]}
             >
+              <Text style={[styles.laneKicker, { color: active ? colors.gold : colors.mutedForeground }]}>LANE {lane + 1}</Text>
               {active && meta ? (
                 <Animated.View style={[styles.targetOrb, { transform: [{ scale: pulseScale }] }]}> 
                   <LinearGradient colors={meta.colors} style={styles.targetGradient}>
-                    <Feather name={meta.icon} size={26} color="#111827" />
+                    <Feather name={meta.icon} size={28} color="#111827" />
                     <Text style={styles.targetText}>{meta.label}</Text>
                   </LinearGradient>
                 </Animated.View>
               ) : (
-                <View style={[styles.emptyOrb, { borderColor: colors.border }]}> 
+                <View style={[styles.emptyOrb, { borderColor: colors.border, backgroundColor: colors.background }]}> 
                   <Feather name="circle" size={18} color={colors.mutedForeground} />
                 </View>
               )}
-              <Text style={[styles.laneText, { color: colors.mutedForeground }]}>Lane {lane + 1}</Text>
+              <Text style={[styles.laneText, { color: active ? colors.foreground : colors.mutedForeground }]}>{playing ? "Ready" : "Tap"}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Pressable disabled={busy || playing} onPress={startGame} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}> 
-        <LinearGradient colors={canStart ? ["#FDE68A", "#F59E0B", "#7C3AED"] : ["#475569", "#334155"]} style={styles.startButton}>
-          {busy ? <ActivityIndicator color="#111827" /> : <Text style={styles.startText}>{playing ? "Run Active" : canStart ? "Use 3 Energy & Play" : "Need More Energy"}</Text>}
-        </LinearGradient>
-      </Pressable>
+      <View style={[styles.buttonShell, { borderColor: canStart ? colors.gold + "88" : colors.border }]}> 
+        <Pressable disabled={busy || playing} onPress={startGame} style={({ pressed }) => [styles.startPressable, { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}> 
+          <LinearGradient colors={canStart ? ["#FDE68A", "#F59E0B", "#7C3AED"] : ["#475569", "#334155"]} style={styles.startButton}>
+            {busy ? (
+              <ActivityIndicator color="#111827" />
+            ) : (
+              <>
+                <Feather name={playing ? "check-circle" : "play"} size={16} color="#111827" />
+                <Text style={styles.startText}>{playing ? "Run Active" : canStart ? "Start 30s Run - 3 Energy" : "Need More Energy"}</Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+      </View>
 
       <Text style={[styles.message, { color: colors.mutedForeground }]}>{message}</Text>
       <View style={[styles.safeNote, { borderColor: colors.border, backgroundColor: colors.card }]}> 
         <Feather name="shield" size={15} color={colors.green} />
-        <Text style={[styles.safeText, { color: colors.mutedForeground }]}>Score-only game. Coins, PKR, withdrawals, and offerwall rewards are not changed.</Text>
+        <Text style={[styles.safeText, { color: colors.mutedForeground }]}>Coins, PKR, withdrawals, and offerwall rewards are not changed.</Text>
       </View>
     </View>
   );
@@ -252,30 +277,37 @@ export function CoinRushGame({
 
 const styles = StyleSheet.create({
   wrap: { width: "100%", gap: 12 },
+  heroPanel: { borderRadius: 20, overflow: "hidden", padding: 12 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
   eyebrow: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14, letterSpacing: 0.8 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30 },
+  title: { fontFamily: "Inter_700Bold", fontSize: 25, lineHeight: 31 },
+  subline: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16, marginTop: 2 },
   timerPill: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
   timerText: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   statusGrid: { flexDirection: "row", gap: 8 },
   statusCard: { flex: 1, alignItems: "center", gap: 2, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 6 },
-  statusValue: { fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 21 },
-  statusLabel: { fontFamily: "Inter_500Medium", fontSize: 10, lineHeight: 13 },
+  statusValue: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 22 },
+  statusLabel: { fontFamily: "Inter_600SemiBold", fontSize: 10, lineHeight: 13 },
+  instructionStrip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 11, paddingVertical: 9 },
+  instructionText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 15 },
   scoreBoard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderRadius: 18, padding: 12 },
-  scoreLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 14 },
-  scoreValue: { fontFamily: "Inter_700Bold", fontSize: 28, lineHeight: 34 },
-  comboBox: { flexDirection: "row", alignItems: "center", gap: 6 },
+  scoreLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 14 },
+  scoreValue: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36 },
+  comboBox: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
   comboText: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   lanes: { flexDirection: "row", gap: 8 },
-  lane: { flex: 1, minHeight: 132, borderWidth: 1, borderRadius: 18, alignItems: "center", justifyContent: "center", padding: 8, gap: 8 },
-  targetOrb: { width: 68, height: 68, borderRadius: 22, overflow: "hidden" },
+  lane: { flex: 1, minHeight: 126, borderWidth: 1.5, borderRadius: 20, alignItems: "center", justifyContent: "center", padding: 8, gap: 8 },
+  laneKicker: { fontFamily: "Inter_700Bold", fontSize: 9, lineHeight: 12, letterSpacing: 0.8 },
+  targetOrb: { width: 72, height: 72, borderRadius: 24, overflow: "hidden", shadowColor: "#F59E0B", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
   targetGradient: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
   targetText: { color: "#111827", fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 15 },
-  emptyOrb: { width: 56, height: 56, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  laneText: { fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 14 },
-  startButton: { minHeight: 48, borderRadius: 999, alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
+  emptyOrb: { width: 60, height: 60, borderRadius: 20, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  laneText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
+  buttonShell: { borderWidth: 1, borderRadius: 22, padding: 2, backgroundColor: "rgba(255,255,255,0.06)" },
+  startPressable: { borderRadius: 20, overflow: "hidden" },
+  startButton: { minHeight: 50, borderRadius: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, flexDirection: "row", gap: 8 },
   startText: { color: "#111827", fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
-  message: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 17, textAlign: "center" },
+  message: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 17, textAlign: "center" },
   safeNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderRadius: 14, padding: 10 },
   safeText: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16 },
 });
