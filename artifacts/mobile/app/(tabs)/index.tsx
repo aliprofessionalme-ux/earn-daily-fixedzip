@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
@@ -15,14 +15,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
-import { AnimatedEarnerMascot } from "@/components/AnimatedEarnerMascot";
 import { CompactStatCard } from "@/components/CompactStatCard";
 import { SummaryRow } from "@/components/SummaryRow";
 import { SectionTitle } from "@/components/SectionTitle";
 import { getAppSettings } from "@/services/api";
+import { getProfilePhotoUri } from "@/services/profilePhoto";
 
 function formatCoins(n: number) {
   return n.toLocaleString();
@@ -30,11 +31,6 @@ function formatCoins(n: number) {
 
 function formatPKR(n: number) {
   return "PKR " + n.toFixed(2);
-}
-
-function truncateId(id: string) {
-  if (id.length <= 16) return id;
-  return id.slice(0, 8) + "..." + id.slice(-6);
 }
 
 export default function DashboardScreen() {
@@ -46,10 +42,13 @@ export default function DashboardScreen() {
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [coinRate, setCoinRate] = useState({ coins: 1000, pkr: 20 });
+  const [profilePhotoUri, setProfilePhotoUriState] = useState<string | null>(null);
 
   const isDaylight = themeKey === "daylight";
   const headerGradient = useMemo(
-    () => isDaylight ? ["#FFFDF8", "#EAF8FF", "#FFF6D8"] as [string, string, string] : ["#1A0A3A", "#0D0D1A", "#0D0D1A"] as [string, string, string],
+    () => isDaylight
+      ? ["#FFFDF8", "#EAF8FF", "#FFF6D8"] as [string, string, string]
+      : ["#1A0A3A", "#0D0D1A", "#0D0D1A"] as [string, string, string],
     [isDaylight],
   );
   const statGradients = useMemo(
@@ -66,6 +65,12 @@ export default function DashboardScreen() {
         },
     [isDaylight],
   );
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getProfilePhotoUri().then((uri) => { if (active) setProfilePhotoUriState(uri); }).catch(() => {});
+    return () => { active = false; };
+  }, []));
 
   useEffect(() => {
     let cancelled = false;
@@ -109,8 +114,7 @@ export default function DashboardScreen() {
     { title: "Mini Games", subtitle: "Spin & Scratch", icon: "zap" as const, gradient: [colors.purple, isDaylight ? "#6D28D9" : colors.purpleDark] as [string, string], route: "/(tabs)/games" as const },
     { title: "Earn Rewards", subtitle: "Tasks & Offers", icon: "gift" as const, gradient: [colors.blue, isDaylight ? "#0369A1" : "#1D4ED8"] as [string, string], route: "/(tabs)/offerwall" as const },
     { title: "Wallet", subtitle: "Withdraw PKR", icon: "credit-card" as const, gradient: [colors.green, "#047857"] as [string, string], route: "/(tabs)/wallet" as const },
-    { title: "Profile", subtitle: "Account tools", icon: "user" as const, gradient: [colors.gold, colors.orange] as [string, string], route: "/(tabs)/profile" as const },
-  ], [colors.blue, colors.gold, colors.green, colors.orange, colors.purple, colors.purpleDark, isDaylight]);
+  ], [colors.blue, colors.green, colors.purple, colors.purpleDark, isDaylight]);
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
@@ -142,6 +146,7 @@ export default function DashboardScreen() {
   const pending = user?.pendingCoinsBalance ?? 0;
   const confirmed = user?.confirmedCoinsBalance ?? user?.coinsBalance ?? 0;
   const pkr = user?.pkrBalance ?? 0;
+  const publicName = (user?.displayName || "Earn Daily User").trim();
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
@@ -152,22 +157,27 @@ export default function DashboardScreen() {
       >
         <LinearGradient colors={headerGradient} style={[styles.headerBg, isDaylight && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}> 
           <View style={styles.headerTop}>
-            <View>
-              <Text style={[styles.headerLabel, { color: colors.mutedForeground }]}>Account ID</Text>
-              <Text style={[styles.headerId, { color: isDaylight ? colors.blue : colors.purpleLight }]}>{deviceId ? truncateId(deviceId) : "-"}</Text>
-            </View>
+            <Pressable
+              onPress={() => router.push("/(tabs)/profile")}
+              style={({ pressed }) => [styles.profileTrigger, { opacity: pressed ? 0.72 : 1 }]}
+            >
+              <View style={styles.headerAvatar}> 
+                <ProfilePhotoAvatar uri={profilePhotoUri} name={publicName} fallback={deviceId} size={44} />
+              </View>
+              <View style={{ minWidth: 0 }}>
+                <Text style={[styles.profileEyebrow, { color: colors.mutedForeground }]}>Profile</Text>
+                <Text style={[styles.profileNameSmall, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
+              </View>
+            </Pressable>
             <Pressable onPress={onRefresh} style={({ pressed }) => [styles.refreshBtn, { opacity: pressed ? 0.6 : 1, backgroundColor: isDaylight ? "rgba(255,255,255,0.72)" : "transparent", borderColor: isDaylight ? colors.border : "transparent" }]}> 
               <Feather name="refresh-cw" size={18} color={colors.mutedForeground} />
             </Pressable>
           </View>
 
           <View style={styles.heroRow}>
-            <View style={styles.heroCopy}>
-              <Text style={[styles.heroKicker, { color: colors.gold }]}>Earn Daily</Text>
-              <Text style={[styles.heroTitle, { color: colors.foreground }]}>Walk it like you earn it.</Text>
-              <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>Small actions, smoother rewards.</Text>
-            </View>
-            <AnimatedEarnerMascot size={112} />
+            <Text style={[styles.heroKicker, { color: colors.gold }]}>Earn Daily</Text>
+            <Text style={[styles.heroTitle, { color: colors.foreground }]}>Earn today, secure tomorrow.</Text>
+            <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>Complete tasks, build energy and cash out.</Text>
           </View>
 
           <View style={styles.statsRow}>
@@ -278,16 +288,17 @@ const styles = StyleSheet.create({
   loadingText: { fontFamily: "Inter_400Regular", fontSize: 15, lineHeight: 20, textAlign: "center" },
   errorTitle: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 24, marginTop: 12, textAlign: "center" },
   errorBody: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, textAlign: "center", paddingHorizontal: 24 },
-  headerBg: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 12 },
-  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
-  headerLabel: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, letterSpacing: 0.5 },
-  headerId: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, marginTop: 2 },
+  headerBg: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12 },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 },
+  profileTrigger: { flexDirection: "row", alignItems: "center", gap: 9, flex: 1, minWidth: 0 },
+  headerAvatar: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  profileEyebrow: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 14 },
+  profileNameSmall: { fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 19, marginTop: 1 },
   refreshBtn: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  heroRow: { minHeight: 128, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 },
-  heroCopy: { flex: 1, minWidth: 0, paddingVertical: 4 },
+  heroRow: { minHeight: 86, justifyContent: "center", marginBottom: 12 },
   heroKicker: { fontFamily: "Inter_800ExtraBold", fontSize: 12, lineHeight: 16, textTransform: "uppercase" },
-  heroTitle: { fontFamily: "Inter_800ExtraBold", fontSize: 25, lineHeight: 31, marginTop: 4 },
-  heroSubtitle: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 17, marginTop: 6 },
+  heroTitle: { fontFamily: "Inter_800ExtraBold", fontSize: 23, lineHeight: 29, marginTop: 4 },
+  heroSubtitle: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 17, marginTop: 5 },
   statsRow: { flexDirection: "row", gap: 7 },
   pendingBanner: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginTop: 8, textAlign: "center" },
   section: { paddingHorizontal: 16, marginTop: 14 },

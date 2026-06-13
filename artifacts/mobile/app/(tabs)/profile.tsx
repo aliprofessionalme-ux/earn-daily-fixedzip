@@ -1,21 +1,20 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 import { useColors } from "@/hooks/useColors";
-import { OFFICIAL_WHATSAPP_CHANNEL_URL } from "@/constants/brand";
-import { themeOptions, useTheme, type ThemeKey } from "@/contexts/ThemeContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
-import { CompactStatCard } from "@/components/CompactStatCard";
 import { SectionTitle } from "@/components/SectionTitle";
+import { getLeaderboard, type LeaderboardUser } from "@/services/api";
+import { getProfilePhotoUri } from "@/services/profilePhoto";
 import { getUnlockedBadges, getUserLevel, type BadgeIcon, type BadgeInfo } from "@/utils/badges";
 
-function truncate(value?: string | null) {
-  if (!value) return "-";
-  return value.length > 22 ? `${value.slice(0, 10)}...${value.slice(-8)}` : value;
-}
+type RankedUser = LeaderboardUser & { deviceId?: string };
 
 function todayKey() {
   try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" }); }
@@ -24,23 +23,6 @@ function todayKey() {
 
 function formatPKR(n: number) { return `PKR ${Number(n || 0).toFixed(2)}`; }
 
-function initialsFrom(name?: string | null, fallback?: string | null) {
-  const source = (name || fallback || "ED").trim();
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  const colors = useColors();
-  return (
-    <View style={styles.infoRow}>
-      <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: colors.foreground }]} numberOfLines={1}>{value}</Text>
-    </View>
-  );
-}
-
 function BadgePill({ badge }: { badge: BadgeInfo }) {
   const colors = useColors();
   return (
@@ -48,22 +30,6 @@ function BadgePill({ badge }: { badge: BadgeInfo }) {
       <Feather name={badge.icon as BadgeIcon} size={13} color={badge.color} />
       <Text style={[styles.badgePillText, { color: colors.foreground }]} numberOfLines={1}>{badge.label}</Text>
     </View>
-  );
-}
-
-function ToolRow({ icon, title, subtitle, onPress }: { icon: React.ComponentProps<typeof Feather>["name"]; title: string; subtitle: string; onPress: () => void }) {
-  const colors = useColors();
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.toolRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}> 
-      <View style={[styles.toolIcon, { backgroundColor: colors.gold + "18" }]}> 
-        <Feather name={icon} size={18} color={colors.gold} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[styles.toolTitle, { color: colors.foreground }]} numberOfLines={1}>{title}</Text>
-        <Text style={[styles.toolSubtitle, { color: colors.mutedForeground }]} numberOfLines={2}>{subtitle}</Text>
-      </View>
-      <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-    </Pressable>
   );
 }
 
@@ -83,17 +49,48 @@ function MiniMetric({ icon, label, value, color }: { icon: React.ComponentProps<
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { themeKey, setThemeKey } = useTheme();
-  const { user, deviceId, installId, firebaseUid, authMode, authVerified, refreshUser, updateProfile } = useUser();
+  const { themeKey } = useTheme();
+  const { user, deviceId, authVerified, updateProfile } = useUser();
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [profilePhotoUri, setProfilePhotoUriState] = useState<string | null>(null);
   const [savingName, setSavingName] = useState(false);
-  const [savingTheme, setSavingTheme] = useState<ThemeKey | null>(null);
   const [nameNotice, setNameNotice] = useState<{ text: string; ok: boolean } | null>(null);
+  const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
+  const [rankLoaded, setRankLoaded] = useState(false);
 
   useEffect(() => { setDisplayName(user?.displayName ?? ""); }, [user?.displayName]);
   useEffect(() => { setPhone(user?.phone ?? ""); }, [user?.phone]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getProfilePhotoUri().then((uri) => { if (active) setProfilePhotoUriState(uri); }).catch(() => {});
+    return () => { active = false; };
+  }, []));
+  useEffect(() => {
+    let cancelled = false;
+    if (!deviceId) {
+      setLeaderboardRank(null);
+      setRankLoaded(true);
+      return () => { cancelled = true; };
+    }
+
+    setRankLoaded(false);
+    getLeaderboard(100)
+      .then((items) => {
+        if (cancelled) return;
+        const match = (items as RankedUser[]).find((item) => item.deviceId === deviceId);
+        setLeaderboardRank(match?.rank ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setLeaderboardRank(null);
+      })
+      .finally(() => {
+        if (!cancelled) setRankLoaded(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [deviceId]);
 
   const energy = user?.energyBalance ?? 0;
   const pending = user?.pendingCoinsBalance ?? 0;
@@ -108,9 +105,15 @@ export default function ProfileScreen() {
   const badges = useMemo(() => getUnlockedBadges(user, 6), [user]);
   const levelProgress = Math.max(0, Math.min(100, Math.round(level.progress * 100)));
   const publicName = (user?.displayName || displayName || "Earn Daily User").trim();
+  const rankValue = rankLoaded ? (leaderboardRank ? `#${leaderboardRank}` : "Top 100+") : "...";
+  const rankHint = leaderboardRank ? "Your position in Top Users" : "Earn more confirmed coins to enter Top Users";
   const profileGradient = useMemo(
-    () => themeKey === "primary" ? ["#1A0A3A", "#0D0D1A"] as const : [colors.purpleDark, colors.background] as const,
-    [colors.background, colors.purpleDark, themeKey],
+    () => themeKey === "daylight"
+      ? ["#F7FFF9", "#E9F8EE", "#DDF6E5"] as const
+      : themeKey === "midnightGold"
+        ? ["#111111", "#201703", "#0B0B0B"] as const
+        : ["#2B1159", "#1A0A3A", "#0D0D1A"] as const,
+    [themeKey],
   );
   const statusIcon: React.ComponentProps<typeof Feather>["name"] = user?.isBanned ? "x-octagon" : "shield";
   const statusColor = user?.isBanned ? colors.destructive : colors.green;
@@ -134,55 +137,65 @@ export default function ProfileScreen() {
     }
   };
 
-  const chooseTheme = async (nextThemeKey: ThemeKey) => {
-    if (savingTheme || nextThemeKey === themeKey) return;
-    setSavingTheme(nextThemeKey);
-    try {
-      await setThemeKey(nextThemeKey);
-    } finally {
-      setSavingTheme(null);
-    }
-  };
-
-  const openWhatsAppChannel = () => {
-    void Linking.openURL(OFFICIAL_WHATSAPP_CHANNEL_URL);
-  };
-
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <LinearGradient colors={profileGradient} style={StyleSheet.absoluteFillObject} />
-      <ScrollView contentContainerStyle={{ paddingTop: topPad + 14, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.foreground }]}>Profile</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Personal account and app preferences</Text>
+      <ScrollView contentContainerStyle={{ paddingTop: topPad + 12, paddingBottom: Platform.OS === "web" ? 34 : 112, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <LinearGradient colors={profileGradient} style={[styles.heroCard, { borderColor: colors.border }]}> 
+          <View style={styles.topActions}>
+            <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.card + "DD", borderColor: colors.border, opacity: pressed ? 0.72 : 1 }]}> 
+              <Feather name="arrow-left" size={19} color={colors.foreground} />
+            </Pressable>
+            <Pressable onPress={() => router.push("/settings")} style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.card + "DD", borderColor: colors.border, opacity: pressed ? 0.72 : 1 }]}> 
+              <Feather name="settings" size={19} color={colors.foreground} />
+            </Pressable>
           </View>
-          <Pressable onPress={() => void refreshUser()} style={[styles.refresh, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <Feather name="refresh-cw" size={18} color={colors.mutedForeground} />
-          </Pressable>
-        </View>
 
-        <LinearGradient colors={[colors.gold + "20", "rgba(255,255,255,0.04)"]} style={[styles.identityCard, { borderColor: colors.border }]}> 
           <View style={styles.identityRow}>
-            <View style={[styles.profileMark, { backgroundColor: colors.background, borderColor: colors.gold + "55" }]}> 
-              <Text style={[styles.profileMarkText, { color: colors.gold }]}>{initialsFrom(publicName, deviceId)}</Text>
+            <View style={styles.profileAvatarWrap}> 
+              <ProfilePhotoAvatar uri={profilePhotoUri} name={publicName} fallback={deviceId} size={78} />
             </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={styles.identityCopy}>
               <Text style={[styles.profileName, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
               <Text style={[styles.profilePhone, { color: colors.mutedForeground }]} numberOfLines={1}>{user?.phone || "Phone number not added"}</Text>
-            </View>
-            <View style={[styles.statusPill, { backgroundColor: statusColor + "18", borderColor: statusColor + "55" }]}> 
-              <Feather name={statusIcon} size={13} color={statusColor} />
-              <Text style={[styles.statusPillText, { color: statusColor }]}>{statusTitle}</Text>
+              <View style={[styles.statusPill, { backgroundColor: statusColor + "18", borderColor: statusColor + "55" }]}> 
+                <Feather name={statusIcon} size={13} color={statusColor} />
+                <Text style={[styles.statusPillText, { color: statusColor }]}>{statusTitle}</Text>
+              </View>
+              <Text style={[styles.identitySub, { color: colors.mutedForeground }]} numberOfLines={2}>{statusSubtitle}</Text>
             </View>
           </View>
-          <Text style={[styles.identitySub, { color: colors.mutedForeground }]} numberOfLines={2}>{statusSubtitle}</Text>
+
+          <View style={styles.profileActionsRow}>
+            <Pressable onPress={() => router.push("/avatar")} style={({ pressed }) => [styles.profileActionButton, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "18", opacity: pressed ? 0.72 : 1 }]}> 
+              <Feather name="image" size={13} color={colors.gold} />
+              <Text style={[styles.profileActionText, { color: colors.gold }]}>Edit Photo</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push("/referral")} style={({ pressed }) => [styles.profileActionButton, { borderColor: colors.green + "55", backgroundColor: colors.green + "18", opacity: pressed ? 0.72 : 1 }]}> 
+              <Feather name="share-2" size={13} color={colors.green} />
+              <Text style={[styles.profileActionText, { color: colors.green }]}>Refer QR</Text>
+            </Pressable>
+          </View>
         </LinearGradient>
 
         <View style={styles.balanceRow}>
-          <CompactStatCard icon="zap" label="Energy" value={energy.toLocaleString()} sub="App benefits" colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.gold} />
-          <CompactStatCard icon="clock" label="Pending" value={pending.toLocaleString()} sub="Under verification" colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.orange} />
-          <CompactStatCard icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} sub={formatPKR(pkr)} colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]} accent={colors.green} />
+          <MiniMetric icon="zap" label="Energy" value={energy.toLocaleString()} color={colors.gold} />
+          <MiniMetric icon="clock" label="Pending" value={pending.toLocaleString()} color={colors.orange} />
+          <MiniMetric icon="check-circle" label="Confirmed" value={confirmed.toLocaleString()} color={colors.green} />
+        </View>
+
+        <View style={styles.section}>
+          <SectionTitle title="Top Users" />
+          <Pressable onPress={() => router.push("/leaderboard")} style={({ pressed }) => [styles.topUsersPanel, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.86 : 1 }]}> 
+            <View style={[styles.rankIcon, { backgroundColor: colors.gold + "18" }]}> 
+              <Feather name="award" size={20} color={colors.gold} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.rankLabel, { color: colors.mutedForeground }]}>Your Rank</Text>
+              <Text style={[styles.rankHint, { color: colors.foreground }]} numberOfLines={1}>{rankHint}</Text>
+            </View>
+            <Text style={[styles.rankValue, { color: colors.gold }]}>{rankValue}</Text>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
         </View>
 
         <View style={styles.section}>
@@ -223,51 +236,6 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionTitle title="Account tools" />
-          <View style={styles.toolsList}>
-            <ToolRow icon="award" title="Top users" subtitle="Leaderboard with hidden account IDs" onPress={() => router.push("/leaderboard")} />
-            <ToolRow icon="share-2" title="Referral QR" subtitle="Share, scan and track qualified referral bonuses" onPress={() => router.push("/referral")} />
-            <ToolRow icon="bell" title="Notifications" subtitle="Withdrawals, rewards and support replies" onPress={() => router.push("/notifications")} />
-            <ToolRow icon="list" title="Transactions" subtitle="Balance changes and reward history" onPress={() => router.push("/transactions")} />
-            <ToolRow icon="message-circle" title="Support" subtitle="Send a ticket and view admin replies" onPress={() => router.push("/support")} />
-            <ToolRow icon="send" title="Official WhatsApp Channel" subtitle="Earn Daily official updates" onPress={openWhatsAppChannel} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionTitle title="Appearance" />
-          <View style={styles.themeGrid}>
-            {themeOptions.map((option) => {
-              const active = option.key === themeKey;
-              return (
-                <Pressable
-                  key={option.key}
-                  disabled={savingTheme !== null}
-                  onPress={() => void chooseTheme(option.key)}
-                  style={({ pressed }) => [
-                    styles.themeOption,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: active ? colors.primary : colors.border,
-                      opacity: pressed ? 0.86 : savingTheme && savingTheme !== option.key ? 0.62 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.themeTop}>
-                    <View style={styles.themeSwatches}>
-                      {option.swatches.map((swatch) => <View key={swatch} style={[styles.themeSwatch, { backgroundColor: swatch }]} />)}
-                    </View>
-                    {savingTheme === option.key ? <ActivityIndicator size="small" color={colors.primary} /> : active ? <Feather name="check-circle" size={17} color={colors.primary} /> : null}
-                  </View>
-                  <Text style={[styles.themeTitle, { color: active ? colors.primary : colors.foreground }]} numberOfLines={1}>{option.label}</Text>
-                  <Text style={[styles.themeText, { color: colors.mutedForeground }]} numberOfLines={2}>{option.description}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
           <SectionTitle title="Level & badges" />
           <View style={[styles.levelCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={styles.levelTop}>
@@ -276,7 +244,7 @@ export default function ProfileScreen() {
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.levelName, { color: colors.foreground }]}>{level.name} Level</Text>
-                <Text style={[styles.levelSub, { color: colors.mutedForeground }]}>{lifetimeCoins.toLocaleString()} lifetime coins</Text>
+                <Text style={[styles.levelSub, { color: colors.mutedForeground }]}>{lifetimeCoins.toLocaleString()} lifetime coins - {formatPKR(pkr)}</Text>
               </View>
               <Text style={[styles.levelPercent, { color: level.color }]}>{levelProgress}%</Text>
             </View>
@@ -291,25 +259,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
-
-        <View style={styles.section}>
-          <SectionTitle title="Help & rules" />
-          <View style={styles.toolsList}>
-            <ToolRow icon="help-circle" title="How it works" subtitle="Rewards, verification and payout timing" onPress={() => router.push("/how-it-works")} />
-            <ToolRow icon="file-text" title="Terms & Conditions" subtitle="Fair play, VPN, fraud and withdrawal rules" onPress={() => router.push("/terms")} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionTitle title="Private account info" />
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <InfoRow label="Referral code" value={user?.referralCode ?? "Open Referral to create"} />
-            <InfoRow label="Device ID" value={truncate(deviceId)} />
-            <InfoRow label="Install ID" value={truncate(installId)} />
-            <InfoRow label="Firebase UID" value={truncate(firebaseUid ?? user?.firebaseUid)} />
-            <InfoRow label="Auth mode" value={authMode} />
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
@@ -317,20 +266,26 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 10 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30 },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16, marginTop: 2 },
-  refresh: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  identityCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginBottom: 12, overflow: "hidden" },
-  identityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  profileMark: { width: 58, height: 58, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  profileMarkText: { fontFamily: "Inter_700Bold", fontSize: 20, lineHeight: 25 },
-  profileName: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 23 },
-  profilePhone: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16, marginTop: 2 },
-  statusPill: { minHeight: 28, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", gap: 5 },
+  heroCard: { borderWidth: 1, borderRadius: 22, padding: 14, marginBottom: 12, overflow: "hidden" },
+  topActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
+  iconButton: { width: 38, height: 38, borderRadius: 999, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  identityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  profileAvatarWrap: { width: 78, height: 78, alignItems: "center", justifyContent: "center" },
+  profileActionsRow: { flexDirection: "row", gap: 8, marginTop: 14 },
+  profileActionButton: { flex: 1, minHeight: 34, borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  profileActionText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
+  identityCopy: { flex: 1, minWidth: 0 },
+  profileName: { fontFamily: "Inter_800ExtraBold", fontSize: 22, lineHeight: 28 },
+  profilePhone: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16, marginTop: 3 },
+  statusPill: { alignSelf: "flex-start", minHeight: 28, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, marginTop: 9, flexDirection: "row", alignItems: "center", gap: 5 },
   statusPillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
-  identitySub: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 10 },
+  identitySub: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 8 },
   balanceRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  topUsersPanel: { minHeight: 66, borderWidth: 1, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  rankIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  rankLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15 },
+  rankHint: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17, marginTop: 1 },
+  rankValue: { fontFamily: "Inter_800ExtraBold", fontSize: 20, lineHeight: 25 },
   section: { marginBottom: 14 },
   editCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
@@ -338,22 +293,10 @@ const styles = StyleSheet.create({
   saveText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
   notice: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, textAlign: "center" },
   progressGrid: { flexDirection: "row", gap: 8 },
-  miniMetric: { flex: 1, minHeight: 88, borderWidth: 1, borderRadius: 14, padding: 10, alignItems: "center", justifyContent: "center" },
+  miniMetric: { flex: 1, minHeight: 82, borderWidth: 1, borderRadius: 14, padding: 10, alignItems: "center", justifyContent: "center" },
   miniMetricIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   miniMetricValue: { fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 22 },
   miniMetricLabel: { fontFamily: "Inter_600SemiBold", fontSize: 10, lineHeight: 13, marginTop: 1, textAlign: "center" },
-  toolsList: { gap: 8 },
-  toolRow: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
-  toolIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  toolTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
-  toolSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16, marginTop: 1 },
-  themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  themeOption: { width: "48.6%", minHeight: 118, borderWidth: 1, borderRadius: 16, padding: 12, gap: 8 },
-  themeTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  themeSwatches: { flexDirection: "row", alignItems: "center" },
-  themeSwatch: { width: 22, height: 22, borderRadius: 999, borderWidth: 1, borderColor: "rgba(255,255,255,0.24)", marginRight: -5 },
-  themeTitle: { fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
-  themeText: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
   levelCard: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
   levelTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   levelIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
@@ -366,8 +309,4 @@ const styles = StyleSheet.create({
   badgesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   badgePill: { minHeight: 30, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "48%" },
   badgePillText: { fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 15, flexShrink: 1 },
-  infoCard: { borderWidth: 1, borderRadius: 16, overflow: "hidden" },
-  infoRow: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.09)" },
-  infoLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginBottom: 2 },
-  infoValue: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16 },
 });

@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useColors } from "@/hooks/useColors";
 import { getLeaderboard, type LeaderboardUser } from "@/services/api";
 import { getUnlockedBadges, getUserLevel, type BadgeIcon } from "@/utils/badges";
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   retryText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 17 },
   row: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 10 },
   rank: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  rankText: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
+  rankText: { fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 19 },
   name: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
   masked: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 2 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 7 },

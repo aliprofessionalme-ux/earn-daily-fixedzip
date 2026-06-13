@@ -30,6 +30,7 @@ function RootStack() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="avatar" options={{ headerShown: false }} />
       <Stack.Screen name="transactions" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="task-history" options={{ headerShown: false }} />
