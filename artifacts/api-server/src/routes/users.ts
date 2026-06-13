@@ -13,6 +13,7 @@ import {
   serializeUser,
 } from "../services/firebase-admin.js";
 import { getTaskSlotStatus, unlockExtraTaskSlot } from "../services/taskSlots.js";
+import { startCoinRushGame } from "../services/coinRush.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
 import {
   applyReferralCode,
@@ -335,6 +336,15 @@ router.post("/:deviceId/scratch", requireFirebaseAuth, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Error recording scratch");
     sendError(res, err, "Scratch reward failed. Please try again.");
+  }
+});
+
+router.post("/:deviceId/games/coin-rush/start", requireFirebaseAuth, async (req, res) => {
+  try {
+    res.json(await startCoinRushGame(String(req.params.deviceId)));
+  } catch (err) {
+    req.log.error({ err }, "Error starting Coin Rush");
+    sendError(res, err, "Unable to start Coin Rush.");
   }
 });
 
