@@ -68,7 +68,8 @@ function sendError(res: Response, err: unknown, fallback: string) {
 function formRedirect(res: Response, fallbackJson: unknown) {
   const accepts = String(res.req.headers.accept ?? "");
   if (accepts.includes("text/html")) {
-    res.redirect("/admin/support");
+    const returnTo = String((res.req as Request).body?.returnTo ?? "");
+    res.redirect(returnTo.startsWith("/admin/") ? returnTo : "/admin/support");
   } else {
     res.json(fallbackJson);
   }
@@ -219,9 +220,9 @@ export function enhanceAdminDashboardSupportLink(req: Request, res: Response, ne
   const originalSend = res.send.bind(res);
   res.send = ((body?: any): Response => {
     let nextBody = body;
-    if (typeof body === "string" && body.includes("Support Tickets") && !body.includes("/admin/support")) {
-      const supportTools = `<div class="actions" style="margin:8px 0 12px"><a class="btn green" href="/admin/support">Open Reply Center</a><span class="muted small">You can also reply directly from the boxes below.</span></div>`;
-      const supportScript = `<script>(function(){var forms=[].slice.call(document.querySelectorAll('form[action*="/api/admin/support/"][action$="/close"]'));forms.forEach(function(closeForm){var cell=closeForm.parentElement;if(!cell||cell.querySelector('[data-support-reply-form]'))return;var replyForm=document.createElement('form');replyForm.method='post';replyForm.action=closeForm.action.replace(/\/close$/,'/reply');replyForm.className='stack';replyForm.setAttribute('data-support-reply-form','true');var csrf=closeForm.querySelector('input[name="_csrf"]');if(csrf)replyForm.appendChild(csrf.cloneNode(true));var textarea=document.createElement('textarea');textarea.className='input';textarea.name='reply';textarea.rows=3;textarea.required=true;textarea.placeholder='Write reply to user';replyForm.appendChild(textarea);var actions=document.createElement('div');actions.className='actions';var send=document.createElement('button');send.className='btn green';send.type='submit';send.textContent='Send Reply';actions.appendChild(send);replyForm.appendChild(actions);cell.insertBefore(replyForm,closeForm);closeForm.style.marginTop='8px';});})();</script>`;
+    if (typeof body === "string" && body.includes("Support Tickets") && !body.includes("data-support-dashboard-replies")) {
+      const supportTools = `<div class="actions" data-support-dashboard-replies="true" style="margin:8px 0 12px"><a class="btn green" href="/admin/support">Open Reply Center</a><span class="muted small">Reply directly below. Users get a notification when you send a reply.</span></div>`;
+      const supportScript = `<script>(function(){var forms=[].slice.call(document.querySelectorAll('form[action*="/api/admin/support/"][action$="/close"]'));forms.forEach(function(closeForm){var cell=closeForm.parentElement;if(!cell||cell.querySelector('[data-support-reply-form]'))return;var csrf=closeForm.querySelector('input[name="_csrf"]');var replyForm=document.createElement('form');replyForm.method='post';replyForm.action=closeForm.action.replace(/\/close$/,'/reply');replyForm.className='stack';replyForm.setAttribute('data-support-reply-form','true');if(csrf)replyForm.appendChild(csrf.cloneNode(true));var returnTo=document.createElement('input');returnTo.type='hidden';returnTo.name='returnTo';returnTo.value='/admin/dashboard';replyForm.appendChild(returnTo);if(!closeForm.querySelector('input[name="returnTo"]')){var closeReturn=document.createElement('input');closeReturn.type='hidden';closeReturn.name='returnTo';closeReturn.value='/admin/dashboard';closeForm.appendChild(closeReturn);}var textarea=document.createElement('textarea');textarea.className='input';textarea.name='reply';textarea.rows=3;textarea.required=true;textarea.placeholder='Write reply to user';textarea.style.minWidth='220px';textarea.style.marginBottom='6px';replyForm.appendChild(textarea);var actions=document.createElement('div');actions.className='actions';var send=document.createElement('button');send.className='btn green';send.type='submit';send.textContent='Send Reply';actions.appendChild(send);replyForm.appendChild(actions);cell.insertBefore(replyForm,closeForm);closeForm.style.marginTop='8px';});})();</script>`;
       nextBody = body
         .replace("<h3>Support Tickets</h3>", `<h3>Support Tickets</h3>${supportTools}`)
         .replace("</body>", `${supportScript}</body>`);
