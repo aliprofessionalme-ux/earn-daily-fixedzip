@@ -48,6 +48,7 @@ export async function startCoinRushGame(deviceId: string) {
       status: "spent",
       metadata: {
         energyCost,
+        energyChange: -energyCost,
         rewardType: "score_only",
         payoutCoins: 0,
         payoutPKR: 0,
