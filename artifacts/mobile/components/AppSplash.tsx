@@ -64,8 +64,8 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
   const spinRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 
   return (
-    <View style={[styles.root, { backgroundColor: "#050607", paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}> 
-      <LinearGradient colors={["#050607", "#0B0B0B", "#010101"]} style={StyleSheet.absoluteFillObject} />
+    <View style={[styles.root, { backgroundColor: "#050607", paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}> 
+      <LinearGradient colors={["#050607", "#0B0B0B", "#050607"]} style={StyleSheet.absoluteFillObject} />
       <View style={styles.glowGold} />
       <View style={styles.glowSoft} />
 
@@ -92,8 +92,8 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
         ) : (
           <>
             <ActivityIndicator size="large" color={splashGold} />
-            <Text style={[styles.loadingText, { color: splashText }]}>Starting Earn Daily</Text>
-            <Text style={[styles.loadingSub, { color: splashMuted }]}>Preparing your secure reward account...</Text>
+            <Text style={[styles.loadingText, { color: splashText }]}>Preparing your account</Text>
+            <Text style={[styles.loadingSub, { color: splashMuted }]}>Syncing your wallet and rewards securely...</Text>
             <View style={styles.dotRow}>
               {[0, 1, 2].map((index) => (
                 <Animated.View
@@ -117,14 +117,14 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
 
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
-  glowGold: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(242,201,76,0.16)", top: 80, right: -80 },
-  glowSoft: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(255,255,255,0.06)", bottom: -80, left: -90 },
-  logoWrap: { width: 88, height: 88, borderRadius: 28, borderWidth: 1, marginBottom: 18, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowColor: "#F2C94C", shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 6 } },
-  logoRing: { position: "absolute", width: 104, height: 104, borderRadius: 34, borderWidth: 2, borderLeftColor: "transparent", borderBottomColor: "transparent" },
-  title: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: 0, textAlign: "center" },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 6, textAlign: "center" },
+  glowGold: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(242,201,76,0.13)", top: 78, right: -88 },
+  glowSoft: { position: "absolute", width: 320, height: 320, borderRadius: 320, backgroundColor: "rgba(255,255,255,0.045)", bottom: -96, left: -100 },
+  logoWrap: { width: 92, height: 92, borderRadius: 28, borderWidth: 1, marginBottom: 20, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowColor: "#F2C94C", shadowOpacity: 0.25, shadowRadius: 22, shadowOffset: { width: 0, height: 8 } },
+  logoRing: { position: "absolute", width: 108, height: 108, borderRadius: 34, borderWidth: 2, borderLeftColor: "transparent", borderBottomColor: "transparent" },
+  title: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36, letterSpacing: 0, textAlign: "center" },
+  subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, marginTop: 5, textAlign: "center" },
   credit: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: "center" },
-  statusCard: { width: "100%", marginTop: 24, borderWidth: 1, borderRadius: 20, padding: 18, alignItems: "center", gap: 8 },
+  statusCard: { width: "100%", maxWidth: 342, marginTop: 26, borderWidth: 1, borderRadius: 22, paddingVertical: 20, paddingHorizontal: 18, alignItems: "center", gap: 8 },
   loadingText: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, textAlign: "center", marginTop: 6 },
   loadingSub: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, textAlign: "center" },
   dotRow: { flexDirection: "row", gap: 7, marginTop: 4 },
