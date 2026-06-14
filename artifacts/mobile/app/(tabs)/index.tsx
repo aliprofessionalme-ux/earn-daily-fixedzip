@@ -45,11 +45,14 @@ export default function DashboardScreen() {
   const [profilePhotoUri, setProfilePhotoUriState] = useState<string | null>(null);
 
   const isDaylight = themeKey === "daylight";
+  const isGoldTheme = themeKey === "midnightGold";
   const headerGradient = useMemo(
-    () => isDaylight
-      ? ["#FFFDF8", "#EAF8FF", "#FFF6D8"] as [string, string, string]
-      : ["#1A0A3A", "#0D0D1A", "#0D0D1A"] as [string, string, string],
-    [isDaylight],
+    () => {
+      if (isDaylight) return ["#FFFDF8", "#F5FBFF", "#FFF8E6"] as [string, string, string];
+      if (isGoldTheme) return ["#050607", "#111318", "#17130A"] as [string, string, string];
+      return ["#16072F", "#0D0D1A", "#11101C"] as [string, string, string];
+    },
+    [isDaylight, isGoldTheme],
   );
   const statGradients = useMemo(
     () => isDaylight
@@ -111,9 +114,9 @@ export default function DashboardScreen() {
   }, [refreshUser]);
 
   const navCards = useMemo(() => [
-    { title: "Mini Games", subtitle: "Spin & Scratch", icon: "zap" as const, gradient: [colors.purple, isDaylight ? "#6D28D9" : colors.purpleDark] as [string, string], route: "/(tabs)/games" as const },
-    { title: "Earn Rewards", subtitle: "Tasks & Offers", icon: "gift" as const, gradient: [colors.blue, isDaylight ? "#0369A1" : "#1D4ED8"] as [string, string], route: "/(tabs)/offerwall" as const },
-    { title: "Wallet", subtitle: "Withdraw PKR", icon: "credit-card" as const, gradient: [colors.green, "#047857"] as [string, string], route: "/(tabs)/wallet" as const },
+    { title: "Play Zone", subtitle: "Spin, scratch and rush", icon: "zap" as const, gradient: [colors.purple, isDaylight ? "#6D28D9" : colors.purpleDark] as [string, string], route: "/(tabs)/games" as const },
+    { title: "Task Center", subtitle: "Offers and daily tasks", icon: "gift" as const, gradient: [colors.blue, isDaylight ? "#0369A1" : "#1D4ED8"] as [string, string], route: "/(tabs)/offerwall" as const },
+    { title: "Wallet & Payouts", subtitle: "Balance and withdrawals", icon: "credit-card" as const, gradient: [colors.green, "#047857"] as [string, string], route: "/(tabs)/wallet" as const },
   ], [colors.blue, colors.green, colors.purple, colors.purpleDark, isDaylight]);
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
@@ -165,7 +168,7 @@ export default function DashboardScreen() {
                 <ProfilePhotoAvatar uri={profilePhotoUri} name={publicName} fallback={deviceId} size={44} />
               </View>
               <View style={{ minWidth: 0 }}>
-                <Text style={[styles.profileEyebrow, { color: colors.mutedForeground }]}>Profile</Text>
+                <Text style={[styles.profileEyebrow, { color: colors.mutedForeground }]}>My profile</Text>
                 <Text style={[styles.profileNameSmall, { color: colors.foreground }]} numberOfLines={1}>{publicName}</Text>
               </View>
             </Pressable>
@@ -176,8 +179,18 @@ export default function DashboardScreen() {
 
           <View style={styles.heroRow}>
             <Text style={[styles.heroKicker, { color: colors.gold }]}>Earn Daily</Text>
-            <Text style={[styles.heroTitle, { color: colors.foreground }]}>Earn today, secure tomorrow.</Text>
-            <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>Complete tasks, build energy and cash out.</Text>
+            <Text style={[styles.heroTitle, { color: colors.foreground }]}>Your earning dashboard</Text>
+            <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>Track energy, tasks and wallet from one clean place.</Text>
+            <View style={styles.heroPills}>
+              <View style={[styles.heroPill, { backgroundColor: colors.card + "70", borderColor: colors.border + "80" }]}>
+                <Feather name="shield" size={12} color={colors.green} />
+                <Text style={[styles.heroPillText, { color: colors.mutedForeground }]}>Secure wallet</Text>
+              </View>
+              <View style={[styles.heroPill, { backgroundColor: colors.card + "70", borderColor: colors.border + "80" }]}>
+                <Feather name="trending-up" size={12} color={colors.gold} />
+                <Text style={[styles.heroPillText, { color: colors.mutedForeground }]}>Daily progress</Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.statsRow}>
@@ -222,7 +235,7 @@ export default function DashboardScreen() {
           <Pressable onPress={handleCheckIn} disabled={checkInLoading} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
             <LinearGradient colors={[colors.gold, colors.orange]} style={styles.checkInBtn}>
               {checkInLoading ? <ActivityIndicator color="#000" size="small" /> : <Feather name="sun" size={22} color="#000" />}
-              <Text style={styles.checkInText}>{checkInLoading ? "Claiming..." : "Daily Check-In . +1 Energy"}</Text>
+              <Text style={styles.checkInText}>{checkInLoading ? "Claiming..." : "Daily Check-In +1 Energy"}</Text>
             </LinearGradient>
           </Pressable>
           {checkInMessage ? (
@@ -288,25 +301,28 @@ const styles = StyleSheet.create({
   loadingText: { fontFamily: "Inter_400Regular", fontSize: 15, lineHeight: 20, textAlign: "center" },
   errorTitle: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 24, marginTop: 12, textAlign: "center" },
   errorBody: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, textAlign: "center", paddingHorizontal: 24 },
-  headerBg: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12 },
-  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 },
-  profileTrigger: { flexDirection: "row", alignItems: "center", gap: 9, flex: 1, minWidth: 0 },
+  headerBg: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10 },
+  profileTrigger: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
   headerAvatar: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   profileEyebrow: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 14 },
   profileNameSmall: { fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 19, marginTop: 1 },
   refreshBtn: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  heroRow: { minHeight: 86, justifyContent: "center", marginBottom: 12 },
-  heroKicker: { fontFamily: "Inter_800ExtraBold", fontSize: 12, lineHeight: 16, textTransform: "uppercase" },
-  heroTitle: { fontFamily: "Inter_800ExtraBold", fontSize: 23, lineHeight: 29, marginTop: 4 },
-  heroSubtitle: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 17, marginTop: 5 },
-  statsRow: { flexDirection: "row", gap: 7 },
+  heroRow: { justifyContent: "center", marginBottom: 14 },
+  heroKicker: { fontFamily: "Inter_800ExtraBold", fontSize: 11, lineHeight: 15, textTransform: "uppercase" },
+  heroTitle: { fontFamily: "Inter_800ExtraBold", fontSize: 24, lineHeight: 30, marginTop: 4 },
+  heroSubtitle: { fontFamily: "Inter_500Medium", fontSize: 12.5, lineHeight: 18, marginTop: 5, maxWidth: 290 },
+  heroPills: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  heroPill: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
+  heroPillText: { fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 14 },
+  statsRow: { flexDirection: "row", gap: 8 },
   pendingBanner: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginTop: 8, textAlign: "center" },
-  section: { paddingHorizontal: 16, marginTop: 14 },
-  checkInBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14 },
+  section: { paddingHorizontal: 16, marginTop: 16 },
+  checkInBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 16 },
   checkInText: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18, color: "#000" },
   checkInMsg: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16, textAlign: "center", marginTop: 10 },
-  navList: { gap: 10 },
-  navCard: { borderRadius: 14, borderWidth: 1, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  navList: { gap: 11 },
+  navCard: { borderRadius: 16, borderWidth: 1, padding: 13, flexDirection: "row", alignItems: "center", gap: 11 },
   navTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18, color: "#fff" },
   navSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, color: "rgba(255,255,255,0.72)" },
   activityCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
