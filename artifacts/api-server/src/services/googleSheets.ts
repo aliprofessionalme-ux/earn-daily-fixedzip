@@ -211,7 +211,7 @@ async function buildTab1Layout(sheets: sheets_v4.Sheets, spreadsheetId: string, 
   R.push({
     updateCells: {
       range: { sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 22 },
-      rows: [{ values: [cellValue("EARN DAILY \u2014 USER DATA & APP ACTIVITY", fmt(PAGE_BG, GOLD_TEXT, true, "CENTER", 18, true))] }],
+      rows: [{ values: [cellValue("EARN DAILY — USER DATA & APP ACTIVITY", fmt(PAGE_BG, GOLD_TEXT, true, "CENTER", 18, true))] }],
       fields: "userEnteredValue,userEnteredFormat",
     },
   });
@@ -295,7 +295,7 @@ async function buildTab2Layout(sheets: sheets_v4.Sheets, spreadsheetId: string, 
   R.push({
     updateCells: {
       range: { sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 22 },
-      rows: [{ values: [cellValue("EARN DAILY \u2014 TAX & FINANCIAL DASHBOARD", fmt(PAGE_BG, GOLD_TEXT, true, "CENTER", 18, true))] }],
+      rows: [{ values: [cellValue("EARN DAILY — TAX & FINANCIAL DASHBOARD", fmt(PAGE_BG, GOLD_TEXT, true, "CENTER", 18, true))] }],
       fields: "userEnteredValue,userEnteredFormat",
     },
   });
@@ -331,7 +331,7 @@ async function buildTab2Layout(sheets: sheets_v4.Sheets, spreadsheetId: string, 
 
   // Row 9: Tax headers
   const taxHeaders = [
-    "Month", "USD\u2192PKR", "Rev USD", "Rev PKR", "Payouts PKR", "Provider Fees",
+    "Month", "USD→PKR", "Rev USD", "Rev PKR", "Payouts PKR", "Provider Fees",
     "Bank/Platform Fees", "Gross Profit", "Net Profit", "Taxable Est", "Notes",
   ];
   R.push({
@@ -471,7 +471,7 @@ export async function syncGoogleSheetsReport(
 
   const sid1 = sidMap.get(TAB1);
   const sid2 = sidMap.get(TAB2);
-  if (!sid1 || !sid2) {
+  if (sid1 === undefined || sid2 === undefined) {
     logger.warn("Clean tabs not found. Run redesign first.");
     return summary;
   }
