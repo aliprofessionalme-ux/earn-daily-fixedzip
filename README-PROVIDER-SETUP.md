@@ -1,6 +1,6 @@
 # Earn Daily Provider Setup
 
-This file explains what is needed to make Monlix, Tapjoy, ayeT, PubScale, and Unity ready without changing app code again.
+This file explains what is needed to make Monlix, Tapjoy, ayeT, PubScale, CPX Research, and Unity ready without changing app code again.
 
 ## Safety Rules
 
@@ -30,6 +30,7 @@ Your callback URLs are returned by `GET /api/settings` and are:
 - Tapjoy: `https://YOUR_BACKEND_DOMAIN/api/webhooks/tapjoy`
 - ayeT: `https://YOUR_BACKEND_DOMAIN/api/webhooks/ayet`
 - PubScale: `https://YOUR_BACKEND_DOMAIN/api/webhooks/pubscale`
+- CPX Research: `https://YOUR_BACKEND_DOMAIN/api/webhooks/cpx`
 - Unity required game ad record: `https://YOUR_BACKEND_DOMAIN/api/users/{deviceId}/ads/unity/interstitial-shown`
 
 Use your real Replit/backend domain in place of `YOUR_BACKEND_DOMAIN`.
@@ -113,6 +114,25 @@ PUBSCALE_COINS_PER_USD=5000
 
 PubScale launch URL formats can vary by account, so paste the exact launch URL template from the PubScale dashboard and keep `{deviceId}` in the user identifier position.
 
+### CPX Research
+
+Needed:
+
+```env
+CPX_RESEARCH_APP_ID=
+# or
+CPX_RESEARCH_APP_KEY=
+CPX_RESEARCH_SECRET=
+# or
+CPX_RESEARCH_SECURE_HASH=
+# or
+CPX_RESEARCH_API_KEY=
+CPX_RESEARCH_OFFERWALL_URL_TEMPLATE=https://provider-launch-url.example/path?ext_user_id={deviceId}
+CPX_RESEARCH_COINS_PER_USD=5000
+```
+
+CPX Research launch URL and postback field names can vary by account. Paste the exact offerwall URL from the CPX dashboard and keep `{deviceId}` where CPX asks for the external/user ID. Set the CPX postback/callback URL to `/api/webhooks/cpx`.
+
 ### Unity Ads
 
 For the mandatory ad after 5 spins and 5 scratches:
@@ -135,7 +155,7 @@ Important: Unity ads cannot truly show inside Replit web preview or Expo Go with
 ## What Changed in App Behavior
 
 - Offerwall cards read provider readiness from `/api/settings`.
-- Monlix, Tapjoy, ayeT, and PubScale can become open automatically when their required env values are present.
+- Monlix, Tapjoy, ayeT, PubScale, and CPX Research can become open automatically when their required env values are present.
 - Provider names stay admin/internal; mobile cards show generic user-facing task labels.
 - After the user uses all 5 spins and all 5 scratches, the Mini Games screen shows a required ad card.
 - The required ad card records an interstitial ad event through the backend when Unity interstitial keys are configured.
@@ -167,4 +187,5 @@ TAPJOY_COINS_PER_USD=5000
 AYET_COINS_PER_USD=5000
 AYET_USD_TO_COINS=5000
 PUBSCALE_COINS_PER_USD=5000
+CPX_RESEARCH_COINS_PER_USD=5000
 ```

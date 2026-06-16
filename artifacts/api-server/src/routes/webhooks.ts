@@ -16,7 +16,7 @@ import {
 
 const router = Router();
 
-type Provider = "monlix" | "tapjoy" | "ayet" | "pubscale";
+type Provider = "monlix" | "tapjoy" | "ayet" | "pubscale" | "cpx";
 
 type ParsedWebhook = {
   deviceId: string;
@@ -72,6 +72,14 @@ function providerSecrets(provider: Provider) {
   if (provider === "monlix") return [process.env["MONLIX_API_SECRET"], process.env["MONLIX_SECRET"]].filter(Boolean) as string[];
   if (provider === "ayet") return [process.env["AYET_POSTBACK_SECRET"]].filter(Boolean) as string[];
   if (provider === "tapjoy") return [process.env["TAPJOY_SECRET_KEY"]].filter(Boolean) as string[];
+  if (provider === "cpx") {
+    return [
+      process.env["CPX_RESEARCH_SECRET"],
+      process.env["CPX_RESEARCH_SECURE_HASH"],
+      process.env["CPX_RESEARCH_API_KEY"],
+      process.env["CPX_SECRET"],
+    ].filter(Boolean) as string[];
+  }
   return [process.env["PUBSCALE_API_KEY"]].filter(Boolean) as string[];
 }
 
@@ -94,6 +102,15 @@ function providerConfigured(provider: Provider): { configured: boolean; reason?:
     return process.env["TAPJOY_APP_ID"] && providerSecrets(provider).length > 0
       ? { configured: true }
       : { configured: false, reason: "Tapjoy app ID/secret missing" };
+  }
+  if (provider === "cpx") {
+    if (!process.env["CPX_RESEARCH_APP_ID"] && !process.env["CPX_RESEARCH_APP_KEY"]) {
+      return { configured: false, reason: "CPX_RESEARCH_APP_ID or CPX_RESEARCH_APP_KEY missing" };
+    }
+    if (providerSecrets(provider).length === 0) {
+      return { configured: false, reason: "CPX_RESEARCH_SECRET, CPX_RESEARCH_SECURE_HASH, or CPX_RESEARCH_API_KEY missing" };
+    }
+    return { configured: true };
   }
   return process.env["PUBSCALE_APP_ID"] && providerSecrets(provider).length > 0
     ? { configured: true }
@@ -137,18 +154,18 @@ function verifyWebhook(req: Request, provider: Provider, payload: Record<string,
 function parseWebhook(req: Request): ParsedWebhook {
   const payload = asObject(req);
   const deviceId = firstString(payload, [
-    "userId", "user_id", "subId", "subid", "sub_id", "deviceId", "device_id", "uid", "external_identifier", "externalIdentifier", "click_user_id",
+    "userId", "user_id", "user", "subId", "subid", "sub_id", "deviceId", "device_id", "uid", "ext_user_id", "external_user_id", "external_identifier", "externalIdentifier", "click_user_id",
   ]);
   const externalTransactionId = firstString(payload, [
-    "transactionId", "transaction_id", "txId", "txid", "tx_id", "txn_id", "conversion_id", "conversionId", "lead_id", "id", "oid",
+    "transactionId", "transaction_id", "txId", "txid", "tx_id", "txn_id", "trans_id", "transId", "conversion_id", "conversionId", "lead_id", "click_id", "order_id", "reward_id", "survey_id", "id", "oid",
   ]);
   const payoutUSD = firstNumber(payload, [
-    "payoutUSD", "payoutUsd", "payout_usd", "amount_usd", "usd", "revenue", "payout", "amount", "value",
+    "payoutUSD", "payoutUsd", "payout_usd", "payout_amount", "amount_usd", "currency_amount", "usd", "revenue", "commission", "payout", "amount", "value",
   ]);
   const coinsOverride = firstNumber(payload, [
-    "coins", "coin_amount", "coinAmount", "virtual_currency", "virtualCurrency", "virtual_currency_amount", "virtualCurrencyAmount", "vc_amount", "points",
+    "coins", "coin_amount", "coinAmount", "reward", "reward_amount", "virtual_currency", "virtualCurrency", "virtual_currency_amount", "virtualCurrencyAmount", "vc_amount", "points",
   ]);
-  const offerName = firstString(payload, ["offerName", "offer_name", "campaignName", "campaign_name", "adName", "title", "name"]);
+  const offerName = firstString(payload, ["offerName", "offer_name", "campaignName", "campaign_name", "survey_name", "campaign_title", "adName", "title", "name"]);
   const status = firstString(payload, ["status", "state", "event", "type", "action"]).toLowerCase() || "completed";
   const reason = firstString(payload, ["reason", "rejectionReason", "rejection_reason", "chargeback_reason"]);
 
@@ -232,7 +249,7 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
   try {
     if (isReversalStatus(parsed.status)) {
       const result = await handleOfferwallReversal({
-        provider,
+        provider: provider as Parameters<typeof handleOfferwallReversal>[0]["provider"],
         externalTransactionId: parsed.externalTransactionId,
         reason: parsed.reason ?? `${provider} ${parsed.status}`,
       });
@@ -289,7 +306,7 @@ async function handleProviderWebhook(req: Request, res: Response, provider: Prov
   }
 }
 
-for (const provider of ["monlix", "tapjoy", "ayet", "pubscale"] as Provider[]) {
+for (const provider of ["monlix", "tapjoy", "ayet", "pubscale", "cpx"] as Provider[]) {
   router.get(`/${provider}`, async (req, res) => handleProviderWebhook(req, res, provider));
   router.post(`/${provider}`, async (req, res) => handleProviderWebhook(req, res, provider));
 }

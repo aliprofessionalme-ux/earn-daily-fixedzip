@@ -4,7 +4,7 @@ import { withTaskSlotPolicy } from "../services/taskSlots.js";
 
 const router = Router();
 
-type ProviderKey = "monlix" | "tapjoy" | "ayet" | "pubscale" | "unity";
+type ProviderKey = "monlix" | "tapjoy" | "ayet" | "pubscale" | "cpx" | "unity";
 type ProviderLaunchType = "webview" | "native" | "disabled";
 
 type ProviderLaunchItem = {
@@ -53,6 +53,7 @@ function buildProviderCallbackUrls(req: Request) {
     tapjoy: `${base}/api/webhooks/tapjoy`,
     ayet: `${base}/api/webhooks/ayet`,
     pubscale: `${base}/api/webhooks/pubscale`,
+    cpx: `${base}/api/webhooks/cpx`,
     unity: `${base}/api/users/{deviceId}/ads/unity/interstitial-shown`,
   };
 }
@@ -138,6 +139,28 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
       }
     : disabled("pubscale", "Requires PUBSCALE_APP_ID, PUBSCALE_API_KEY, and PUBSCALE_OFFERWALL_URL_TEMPLATE with {deviceId}.", callbackUrls.pubscale);
 
+  const cpxAppId = envValue("CPX_RESEARCH_APP_ID") || envValue("CPX_RESEARCH_APP_KEY");
+  const cpxLaunchUrl = launchTemplate("CPX_RESEARCH_OFFERWALL_URL_TEMPLATE");
+  const cpxReady = Boolean(
+    cpxAppId
+      && (truthyEnv("CPX_RESEARCH_SECRET") || truthyEnv("CPX_RESEARCH_SECURE_HASH") || truthyEnv("CPX_RESEARCH_API_KEY") || truthyEnv("CPX_SECRET"))
+      && cpxLaunchUrl,
+  );
+  const cpxItem: ProviderLaunchItem = cpxReady
+    ? {
+        enabled: true,
+        provider: "cpx",
+        launchType: "webview",
+        publicAppId: cpxAppId,
+        launchUrl: cpxLaunchUrl,
+        callbackUrl: callbackUrls.cpx,
+      }
+    : disabled(
+        "cpx",
+        "Requires CPX_RESEARCH_APP_ID or CPX_RESEARCH_APP_KEY, CPX_RESEARCH_SECRET/SECURE_HASH/API_KEY, and CPX_RESEARCH_OFFERWALL_URL_TEMPLATE with {deviceId}.",
+        callbackUrls.cpx,
+      );
+
   const unityGameId = envValue("UNITY_ANDROID_GAME_ID");
   const unityInterstitialPlacement = envValue("UNITY_INTERSTITIAL_PLACEMENT_ID");
   const unityRewardedPlacement = envValue("UNITY_REWARDED_PLACEMENT_ID");
@@ -148,6 +171,7 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
     gameTasks: monlixItem,
     highRewardOffers: monlixItem,
     surveyRewards: tapjoyItem,
+    researchSurveys: cpxItem,
     appInstallTasks: ayetItem,
     partnerTasks: pubscaleItem,
     watchAdsEnergy: unityRewardedReady

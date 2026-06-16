@@ -13,7 +13,7 @@ const DEFAULT_FREE_TASK_SLOTS = 3;
 const DEFAULT_ENERGY_PER_EXTRA_SLOT = 10;
 const DEFAULT_MAX_EXTRA_SLOTS = 3;
 
-type Provider = "monlix" | "tapjoy" | "ayet" | "pubscale";
+type Provider = "monlix" | "tapjoy" | "ayet" | "pubscale" | "cpx";
 
 export interface TaskSlotPolicy {
   freeTaskSlots: number;
