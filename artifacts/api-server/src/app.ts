@@ -13,6 +13,7 @@ const providerCoinRateKeys = [
   "AYET_COINS_PER_USD",
   "AYET_USD_TO_COINS",
   "PUBSCALE_COINS_PER_USD",
+  "CPX_RESEARCH_COINS_PER_USD",
 ] as const;
 
 // Product rule: a 1 USD offer payout equals 5000 coins.
