@@ -74,9 +74,24 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
         <OfficialWalletLogo size={76} />
       </Animated.View>
 
+      <View style={styles.brandPill}>
+        <Feather name="shield" size={13} color={splashGold} />
+        <Text style={styles.brandPillText}>SECURE REWARD WALLET</Text>
+      </View>
       <Text style={[styles.title, { color: splashText }]}>Earn Daily</Text>
-      <Text style={[styles.subtitle, { color: splashMuted }]}>Earn today, secure tomorrow</Text>
+      <Text style={[styles.subtitle, { color: splashMuted }]}>Earn today. Secure tomorrow.</Text>
       <Text style={[styles.credit, { color: splashGold }]}>Design & Developed by Muhammad Ali Irfan Khan</Text>
+
+      <View style={styles.trustRow}>
+        <View style={styles.trustBadge}>
+          <Feather name="check-circle" size={13} color={splashGold} />
+          <Text style={styles.trustText}>Verified tasks</Text>
+        </View>
+        <View style={styles.trustBadge}>
+          <Feather name="lock" size={13} color={splashGold} />
+          <Text style={styles.trustText}>Protected wallet</Text>
+        </View>
+      </View>
 
       <View style={[styles.statusCard, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.10)" }]}> 
         {hasError ? (
@@ -91,9 +106,15 @@ export function AppSplash({ error, onRetry }: { error?: string | null; onRetry?:
           </>
         ) : (
           <>
-            <ActivityIndicator size="large" color={splashGold} />
-            <Text style={[styles.loadingText, { color: splashText }]}>Preparing your account</Text>
-            <Text style={[styles.loadingSub, { color: splashMuted }]}>Syncing your wallet and rewards securely...</Text>
+            <View style={styles.statusTop}>
+              <Text style={styles.statusEyebrow}>SECURE SYNC</Text>
+              <ActivityIndicator size="small" color={splashGold} />
+            </View>
+            <Text style={[styles.loadingText, { color: splashText }]}>Preparing your reward account</Text>
+            <Text style={[styles.loadingSub, { color: splashMuted }]}>Checking wallet, tasks and security status.</Text>
+            <View style={styles.progressTrack}>
+              <Animated.View style={[styles.progressFill, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.56, 1] }) }]} />
+            </View>
             <View style={styles.dotRow}>
               {[0, 1, 2].map((index) => (
                 <Animated.View
@@ -121,12 +142,21 @@ const styles = StyleSheet.create({
   glowSoft: { position: "absolute", width: 320, height: 320, borderRadius: 320, backgroundColor: "rgba(255,255,255,0.045)", bottom: -96, left: -100 },
   logoWrap: { width: 92, height: 92, borderRadius: 28, borderWidth: 1, marginBottom: 20, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowColor: "#F2C94C", shadowOpacity: 0.25, shadowRadius: 22, shadowOffset: { width: 0, height: 8 } },
   logoRing: { position: "absolute", width: 108, height: 108, borderRadius: 34, borderWidth: 2, borderLeftColor: "transparent", borderBottomColor: "transparent" },
+  brandPill: { borderWidth: 1, borderColor: "rgba(242,201,76,0.45)", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(242,201,76,0.10)", marginBottom: 12 },
+  brandPillText: { color: splashGold, fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 12, letterSpacing: 0 },
   title: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36, letterSpacing: 0, textAlign: "center" },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, marginTop: 5, textAlign: "center" },
   credit: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: "center" },
-  statusCard: { width: "100%", maxWidth: 342, marginTop: 26, borderWidth: 1, borderRadius: 22, paddingVertical: 20, paddingHorizontal: 18, alignItems: "center", gap: 8 },
+  trustRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 14 },
+  trustBadge: { borderWidth: 1, borderColor: "rgba(255,255,255,0.10)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.045)" },
+  trustText: { color: splashText, fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 13 },
+  statusCard: { width: "100%", maxWidth: 342, marginTop: 22, borderWidth: 1, borderRadius: 22, paddingVertical: 20, paddingHorizontal: 18, alignItems: "center", gap: 8 },
+  statusTop: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
+  statusEyebrow: { color: splashGold, fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 12, letterSpacing: 0 },
   loadingText: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, textAlign: "center", marginTop: 6 },
   loadingSub: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, textAlign: "center" },
+  progressTrack: { width: "100%", height: 7, borderRadius: 999, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.08)", marginTop: 6 },
+  progressFill: { width: "72%", height: "100%", borderRadius: 999, backgroundColor: splashGold },
   dotRow: { flexDirection: "row", gap: 7, marginTop: 4 },
   dot: { width: 6, height: 6, borderRadius: 6 },
   errorTitle: { fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 21, marginTop: 4, textAlign: "center" },
