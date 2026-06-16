@@ -260,7 +260,7 @@ export type OfferCategory = "game" | "survey" | "app_install" | "high_reward" | 
 
 export interface OfferEventDocument {
   eventId: string;
-  provider: "monlix" | "tapjoy" | "ayet" | "pubscale";
+  provider: "monlix" | "tapjoy" | "ayet" | "pubscale" | "cpx";
   externalTransactionId: string;
   deviceId: string;
   firebaseUid: string | null;
@@ -290,7 +290,7 @@ export interface AdEventDocument {
   createdAt: string;
 }
 
-export type ProviderKey = "monlix" | "tapjoy" | "ayet" | "pubscale" | "unity";
+export type ProviderKey = "monlix" | "tapjoy" | "ayet" | "pubscale" | "unity" | "cpx";
 export type ProviderLaunchType = "webview" | "native" | "disabled";
 
 export interface ProviderLaunchItem {
@@ -311,6 +311,7 @@ export interface ProviderLaunchStatus {
   appInstallTasks: ProviderLaunchItem;
   highRewardOffers: ProviderLaunchItem;
   partnerTasks: ProviderLaunchItem;
+  researchSurveys?: ProviderLaunchItem;
   watchAdsEnergy: ProviderLaunchItem;
   dailyGameAdGate?: ProviderLaunchItem;
 }
@@ -321,6 +322,7 @@ export interface ProviderCallbackUrls {
   ayet: string;
   pubscale: string;
   unity: string;
+  cpx?: string;
 }
 
 export interface AppSettings {
