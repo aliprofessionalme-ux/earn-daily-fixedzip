@@ -15,13 +15,14 @@ import {
   type OfferEventStatus,
 } from "./firebase-admin.js";
 
-type Provider = "monlix" | "tapjoy" | "ayet" | "pubscale";
+type Provider = "monlix" | "tapjoy" | "ayet" | "pubscale" | "cpx";
 
 type ProviderHoldSettings = {
   monlixHoldDays?: number;
   ayetHoldDays?: number;
   tapjoyHoldDays?: number;
   pubscaleHoldDays?: number;
+  cpxHoldDays?: number;
   unityHoldDays?: number;
 };
 
@@ -56,11 +57,35 @@ export const PROVIDER_REWARD_HOLD_POLICY = {
     holdDays: 60,
     workload: "Offerwall / ad tasks / high value rewards",
   },
+  cpx: {
+    normalWindow: "15-30 days",
+    paymentDelay: "30-45 days",
+    holdDays: 45,
+    workload: "Research surveys / rewarded questionnaires",
+  },
 } as const;
 
 function positiveWholeDays(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.ceil(parsed) : fallback;
+}
+
+function cpxCoinsFromUSD(payoutUSD: number): number {
+  const raw = process.env["CPX_RESEARCH_COINS_PER_USD"];
+  const rate = raw ? Number(raw) : 5000;
+  return Math.round(payoutUSD * (Number.isFinite(rate) && rate > 0 ? rate : 5000));
+}
+
+function coinsFromUSDForProvider(payoutUSD: number, provider: Provider): number {
+  return provider === "cpx" ? cpxCoinsFromUSD(payoutUSD) : calculateCoinsFromUSD(payoutUSD, provider);
+}
+
+function legacyProvider(provider: Provider): Parameters<typeof storeManualReviewOfferEvent>[0]["provider"] {
+  return provider as Parameters<typeof storeManualReviewOfferEvent>[0]["provider"];
+}
+
+function legacyOfferEventProvider(provider: Provider): OfferEventDocument["provider"] {
+  return provider as OfferEventDocument["provider"];
 }
 
 export function getProviderHoldDays(provider: Provider, settings: ProviderHoldSettings = {}): number {
@@ -73,6 +98,8 @@ export function getProviderHoldDays(provider: Provider, settings: ProviderHoldSe
       return positiveWholeDays(settings.tapjoyHoldDays, PROVIDER_REWARD_HOLD_POLICY.tapjoy.holdDays);
     case "pubscale":
       return positiveWholeDays(settings.pubscaleHoldDays, PROVIDER_REWARD_HOLD_POLICY.pubscale.holdDays);
+    case "cpx":
+      return positiveWholeDays(settings.cpxHoldDays, PROVIDER_REWARD_HOLD_POLICY.cpx.holdDays);
     default:
       return PROVIDER_REWARD_HOLD_POLICY.monlix.holdDays;
   }
@@ -136,7 +163,7 @@ export async function creditOfferwallRewardWithPolicy(params: {
   if (!coinsOverride && payoutUSD <= 0) {
     return storeManualReviewOfferEvent({
       deviceId,
-      provider,
+      provider: legacyProvider(provider),
       externalTransactionId,
       payoutUSD: 0,
       coinsOverride: null,
@@ -159,7 +186,7 @@ export async function creditOfferwallRewardWithPolicy(params: {
 
     const { ref, user } = await requireUser(tx, deviceId);
 
-    const coinsCalculated = coinsOverride ?? calculateCoinsFromUSD(payoutUSD, provider);
+    const coinsCalculated = coinsOverride ?? coinsFromUSDForProvider(payoutUSD, provider);
     const offerCategory = params.offerCategory ?? determineOfferCategory(params.offerName, params.rawPayload);
     const settings = await getAppSettings();
     const settingsWithHolds = settings as typeof settings & ProviderHoldSettings;
@@ -190,7 +217,7 @@ export async function creditOfferwallRewardWithPolicy(params: {
 
     tx.set(eventRef, {
       eventId,
-      provider,
+      provider: legacyOfferEventProvider(provider),
       externalTransactionId,
       deviceId,
       firebaseUid: user.firebaseUid ?? null,
