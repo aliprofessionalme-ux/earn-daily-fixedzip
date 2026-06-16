@@ -19,7 +19,7 @@ import { useUser } from "@/contexts/UserContext";
 import { SectionTitle } from "@/components/SectionTitle";
 import { getAppSettings, getTaskSlotStatus, type ProviderLaunchItem, type ProviderLaunchStatus, type TaskSlotStatus } from "@/services/api";
 
-type CategoryId = "game_tasks" | "survey_rewards" | "app_install_tasks" | "high_reward_offers" | "partner_tasks" | "watch_ads";
+type CategoryId = "game_tasks" | "survey_rewards" | "research_surveys" | "app_install_tasks" | "high_reward_offers" | "partner_tasks" | "watch_ads";
 type OfferFilter = "all" | "open" | "fast" | "high" | "games" | "surveys" | "apps" | "energy" | "new";
 
 const OFFER_FILTERS: Array<{ id: OfferFilter; label: string; icon: React.ComponentProps<typeof Feather>["name"] }> = [
@@ -46,6 +46,10 @@ interface EarningCategory {
   filters: OfferFilter[];
 }
 
+type ProviderLaunchStatusWithResearch = ProviderLaunchStatus & {
+  researchSurveys?: ProviderLaunchItem;
+};
+
 function isWebLaunchReady(item?: ProviderLaunchItem | null): boolean {
   return Boolean(item?.enabled && item.launchType === "webview" && item.launchUrl);
 }
@@ -59,9 +63,10 @@ function openTag(enabled: boolean): OfferFilter[] {
   return enabled ? ["open"] : [];
 }
 
-function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCategory[] {
+function getCategories(providerLaunch?: ProviderLaunchStatusWithResearch | null): EarningCategory[] {
   const gameItem = providerLaunch?.gameTasks ?? null;
   const surveyItem = providerLaunch?.surveyRewards ?? null;
+  const researchSurveyItem = providerLaunch?.researchSurveys ?? null;
   const appInstallItem = providerLaunch?.appInstallTasks ?? null;
   const highRewardItem = providerLaunch?.highRewardOffers ?? null;
   const partnerItem = providerLaunch?.partnerTasks ?? null;
@@ -69,6 +74,7 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
 
   const gameReady = isWebLaunchReady(gameItem);
   const surveyReady = isWebLaunchReady(surveyItem);
+  const researchSurveyReady = isWebLaunchReady(researchSurveyItem);
   const appInstallReady = isWebLaunchReady(appInstallItem);
   const highRewardReady = isWebLaunchReady(highRewardItem);
   const partnerReady = isWebLaunchReady(partnerItem);
@@ -95,6 +101,17 @@ function getCategories(providerLaunch?: ProviderLaunchStatus | null): EarningCat
       launchItem: surveyItem,
       gradient: ["#059669", "#047857"],
       filters: ["all", "surveys", ...openTag(surveyReady)],
+    },
+    {
+      id: "research_surveys",
+      title: "Research Surveys",
+      subtitle: researchSurveyReady ? "Complete research surveys for verified pending rewards." : "Research surveys are being prepared. Please check back soon.",
+      icon: "clipboard",
+      rewardType: "pending_coins",
+      status: researchSurveyReady ? "available" : "coming_soon",
+      launchItem: researchSurveyItem,
+      gradient: ["#0EA5E9", "#075985"],
+      filters: ["all", "surveys", "new", ...openTag(researchSurveyReady)],
     },
     {
       id: "app_install_tasks",
@@ -150,7 +167,7 @@ export default function OfferwallScreen() {
   const [activeWebviewUrl, setActiveWebviewUrl] = useState<string | null>(null);
   const [webviewLoading, setWebviewLoading] = useState(true);
   const [webviewError, setWebviewError] = useState(false);
-  const [providerLaunch, setProviderLaunch] = useState<ProviderLaunchStatus | null>(null);
+  const [providerLaunch, setProviderLaunch] = useState<ProviderLaunchStatusWithResearch | null>(null);
   const [activeFilter, setActiveFilter] = useState<OfferFilter>("all");
   const [taskSlots, setTaskSlots] = useState<TaskSlotStatus | null>(null);
   const [taskSlotMessage, setTaskSlotMessage] = useState<string | null>(null);
