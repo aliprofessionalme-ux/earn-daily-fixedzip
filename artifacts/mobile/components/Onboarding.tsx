@@ -77,12 +77,16 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <LinearGradient colors={["#1A0A3A", "#0D0D1A"]} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={["#050607", "#111318", "#181205"]} style={StyleSheet.absoluteFillObject} />
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={[styles.hero, { borderColor: colors.gold + "44" }]}> 
+          <View style={[styles.heroBadge, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "55" }]}> 
+            <Feather name="shield" size={13} color={colors.gold} />
+            <Text style={[styles.heroBadgeText, { color: colors.gold }]}>SECURE ACCOUNT SETUP</Text>
+          </View>
           <OfficialWalletLogo size={76} />
-          <Text style={[styles.title, { color: colors.foreground }]}>Setup your Earn Daily profile</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Username is required. Phone number is optional and can be added later from Profile.</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Create your Earn Daily profile</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Set your public name now. Phone and referral details can be updated from Profile later.</Text>
         </View>
 
         <View style={[styles.setupCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
@@ -127,7 +131,7 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
 
           <Pressable disabled={!canContinue} onPress={() => void submit()} style={({ pressed }) => [{ opacity: !canContinue ? 0.55 : pressed ? 0.88 : 1, transform: [{ scale: pressed && canContinue ? 0.99 : 1 }] }]}> 
             <LinearGradient colors={[colors.goldLight, colors.gold, colors.orange]} style={styles.button}>
-              {saving ? <ActivityIndicator color="#120900" /> : <Text style={styles.buttonText}>Save Profile · Start Earning</Text>}
+              {saving ? <ActivityIndicator color="#120900" /> : <Text style={styles.buttonText}>Save Profile - Start Earning</Text>}
               {!saving ? <Feather name="arrow-right" size={18} color="#120900" /> : null}
             </LinearGradient>
           </Pressable>
@@ -155,7 +159,9 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  hero: { borderWidth: 1, borderRadius: 22, padding: 18, alignItems: "center", backgroundColor: "rgba(255,255,255,0.05)", marginBottom: 14 },
+  hero: { borderWidth: 1, borderRadius: 22, padding: 18, alignItems: "center", backgroundColor: "rgba(255,255,255,0.055)", marginBottom: 14 },
+  heroBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 },
+  heroBadgeText: { fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 12, letterSpacing: 0 },
   title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30, textAlign: "center", marginTop: 10 },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: 6 },
   setupCard: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 8, marginBottom: 14 },
