@@ -148,7 +148,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      await applyGoogleAuth(await signInWithGooglePopup());
+      const result = await signInWithGooglePopup();
+      if (!result.firebaseUid && !result.firebaseToken && typeof window !== "undefined") {
+        return;
+      }
+      await applyGoogleAuth(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
