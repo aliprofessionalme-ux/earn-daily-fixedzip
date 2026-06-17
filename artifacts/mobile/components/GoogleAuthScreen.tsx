@@ -83,7 +83,7 @@ export function GoogleAuthScreen() {
   const buttonLabel = useMemo(() => {
     if (busy) return "Securing account...";
     if (missingClientConfig) return "Google Setup Missing";
-    return Platform.OS === "web" ? "Continue with Google" : "Continue with Google";
+    return Platform.OS === "web" ? "Secure with Google" : "Continue with Google";
   }, [busy, missingClientConfig]);
 
   const handleGoogle = async () => {
@@ -91,10 +91,10 @@ export function GoogleAuthScreen() {
     setBusy(true);
     setLocalError(null);
     try {
-      if (request) {
-        await promptAsync();
-      } else if (Platform.OS === "web") {
+      if (Platform.OS === "web") {
         await signInWithGoogle();
+      } else if (request) {
+        await promptAsync();
       } else {
         setLocalError("Google sign-in request is not ready yet. Please wait a moment and try again.");
       }
@@ -164,7 +164,7 @@ export function GoogleAuthScreen() {
       </View>
 
       <Pressable
-        disabled={busy || missingClientConfig || !request}
+        disabled={busy || missingClientConfig || (Platform.OS !== "web" && !request)}
         onPress={handleGoogle}
         style={({ pressed }) => [styles.googleButton, { opacity: pressed ? 0.88 : busy || missingClientConfig ? 0.58 : 1 }]}
       >
@@ -185,7 +185,11 @@ export function GoogleAuthScreen() {
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : (
-        <Text style={styles.footerText}>A browser window will open for secure Google verification.</Text>
+        <Text style={styles.footerText}>
+          {Platform.OS === "web"
+            ? "Google will open in this browser and return you back after verification."
+            : "A secure Google verification window will open to protect your account."}
+        </Text>
       )}
     </View>
   );
