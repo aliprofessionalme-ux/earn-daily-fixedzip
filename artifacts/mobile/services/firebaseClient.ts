@@ -108,13 +108,22 @@ export async function signInWithGooglePopup(): Promise<AuthResult> {
   const provider = new FirebaseAuth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   if (Platform.OS === "web") {
-    await withTimeout(FirebaseAuth.signInWithRedirect(auth, provider), 20000, "Google redirect sign-in");
-    return {
-      firebaseUid: null,
-      firebaseToken: null,
-      authMode: "device-only",
-      authVerified: false,
-    };
+    try {
+      const credential = await withTimeout(FirebaseAuth.signInWithPopup(auth, provider), 20000, "Google sign-in");
+      return getTokenResult(credential.user);
+    } catch (error) {
+      const code = String((error as { code?: unknown })?.code ?? error).toLowerCase();
+      if (code.includes("popup-blocked") || code.includes("operation-not-supported")) {
+        await withTimeout(FirebaseAuth.signInWithRedirect(auth, provider), 20000, "Google redirect sign-in");
+        return {
+          firebaseUid: null,
+          firebaseToken: null,
+          authMode: "device-only",
+          authVerified: false,
+        };
+      }
+      throw error;
+    }
   }
   const credential = await withTimeout(FirebaseAuth.signInWithPopup(auth, provider), 20000, "Google sign-in");
   return getTokenResult(credential.user);
