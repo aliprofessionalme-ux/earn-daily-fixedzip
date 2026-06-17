@@ -45,8 +45,9 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { themeKey, setThemeKey } = useTheme();
-  const { user, deviceId, installId, firebaseUid, authMode } = useUser();
+  const { user, deviceId, installId, firebaseUid, authMode, googleEmail, googleDisplayName, logout } = useUser();
   const [savingTheme, setSavingTheme] = useState<ThemeKey | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
   const chooseTheme = async (nextThemeKey: ThemeKey) => {
@@ -61,6 +62,16 @@ export default function SettingsScreen() {
 
   const openWhatsAppChannel = () => {
     void Linking.openURL(OFFICIAL_WHATSAPP_CHANNEL_URL);
+  };
+
+  const signOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   return (
@@ -130,12 +141,25 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SectionTitle title="Private account info" />
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <InfoRow label="Google account" value={googleEmail ?? "Not connected"} />
+            <InfoRow label="Google name" value={googleDisplayName ?? user?.displayName ?? "-"} />
             <InfoRow label="Referral code" value={user?.referralCode ?? "Open Referral to create"} />
             <InfoRow label="Device ID" value={truncate(deviceId)} />
             <InfoRow label="Install ID" value={truncate(installId)} />
             <InfoRow label="Firebase UID" value={truncate(firebaseUid ?? user?.firebaseUid)} />
             <InfoRow label="Auth mode" value={authMode} />
           </View>
+          <Pressable
+            disabled={signingOut}
+            onPress={signOut}
+            style={({ pressed }) => [
+              styles.signOutButton,
+              { borderColor: colors.destructive + "66", backgroundColor: colors.destructive + "14", opacity: pressed || signingOut ? 0.74 : 1 },
+            ]}
+          >
+            {signingOut ? <ActivityIndicator size="small" color={colors.destructive} /> : <Feather name="log-out" size={16} color={colors.destructive} />}
+            <Text style={[styles.signOutText, { color: colors.destructive }]}>Sign out of Google</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -165,4 +189,6 @@ const styles = StyleSheet.create({
   infoRow: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.09)" },
   infoLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginBottom: 2 },
   infoValue: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16 },
+  signOutButton: { minHeight: 46, borderRadius: 14, borderWidth: 1, marginTop: 10, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  signOutText: { fontFamily: "Inter_800ExtraBold", fontSize: 13, lineHeight: 17 },
 });

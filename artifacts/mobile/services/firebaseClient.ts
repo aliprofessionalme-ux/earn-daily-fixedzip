@@ -9,6 +9,9 @@ interface AuthResult {
   firebaseToken: string | null;
   authMode: "firebase-anonymous" | "device-only";
   authVerified: boolean;
+  email?: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
   error?: string;
 }
 
@@ -59,19 +62,64 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+function authResultFromUser(user: FirebaseAuth.User, firebaseToken: string): AuthResult {
+  return {
+    firebaseUid: user.uid,
+    firebaseToken,
+    authMode: "firebase-anonymous",
+    authVerified: true,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+  };
+}
+
+async function getTokenResult(user: FirebaseAuth.User): Promise<AuthResult> {
+  const firebaseToken = await withTimeout(user.getIdToken(true), 5000, "Firebase token fetch");
+  return authResultFromUser(user, firebaseToken);
+}
+
+export async function getCurrentGoogleAuth(): Promise<AuthResult | null> {
+  const auth = getFirebaseAuth();
+  const user = auth.currentUser ?? await withTimeout(
+    new Promise<FirebaseAuth.User | null>((resolve) => {
+      const unsubscribe = FirebaseAuth.onAuthStateChanged(auth, (currentUser) => {
+        unsubscribe();
+        resolve(currentUser);
+      });
+    }),
+    5000,
+    "Firebase auth state",
+  );
+
+  if (!user || user.isAnonymous) return null;
+  return getTokenResult(user);
+}
+
+export async function signInWithGooglePopup(): Promise<AuthResult> {
+  const auth = getFirebaseAuth();
+  const provider = new FirebaseAuth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  const credential = await withTimeout(FirebaseAuth.signInWithPopup(auth, provider), 20000, "Google sign-in");
+  return getTokenResult(credential.user);
+}
+
+export async function signInWithGoogleIdToken(idToken: string): Promise<AuthResult> {
+  const auth = getFirebaseAuth();
+  const credential = FirebaseAuth.GoogleAuthProvider.credential(idToken);
+  const result = await withTimeout(FirebaseAuth.signInWithCredential(auth, credential), 20000, "Google sign-in");
+  return getTokenResult(result.user);
+}
+
+export async function signOutGoogle(): Promise<void> {
+  await FirebaseAuth.signOut(getFirebaseAuth());
+}
+
 export async function initAnonymousFirebaseAuth(): Promise<AuthResult> {
   try {
-    const auth = getFirebaseAuth();
-    const credential = auth.currentUser
-      ? { user: auth.currentUser }
-      : await withTimeout(FirebaseAuth.signInAnonymously(auth), 8000, "Firebase anonymous sign-in");
-    const firebaseToken = await withTimeout(credential.user.getIdToken(true), 5000, "Firebase token fetch");
-    return {
-      firebaseUid: credential.user.uid,
-      firebaseToken,
-      authMode: "firebase-anonymous",
-      authVerified: true,
-    };
+    const current = await getCurrentGoogleAuth();
+    if (current) return current;
+    throw new Error("Google account sign-in is required.");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
