@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { getStoredValue, setStoredValue } from "@/services/localStore";
 import { getDeviceIdentity, setCanonicalDeviceId, type DeviceIdentity } from "@/services/deviceIdentity";
-import { initAnonymousFirebaseAuth } from "@/services/firebaseClient";
+import { getCurrentGoogleAuth, signInWithGoogleIdToken, signInWithGooglePopup, signOutGoogle } from "@/services/firebaseClient";
 import { registerDevicePushNotifications } from "@/services/pushNotifications";
 import {
   checkIn as apiCheckIn,
@@ -31,6 +31,9 @@ interface UserContextType {
   firebaseUid: string | null;
   authMode: "firebase-anonymous" | "device-only";
   authVerified: boolean;
+  googleEmail: string | null;
+  googleDisplayName: string | null;
+  googlePhotoURL: string | null;
   user: UserDocument | null;
   deviceIdentity: DeviceIdentity | null;
   isLoading: boolean;
@@ -38,6 +41,9 @@ interface UserContextType {
   onboardingComplete: boolean;
   refreshUser: () => Promise<void>;
   retryInit: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithGoogleToken: (idToken: string) => Promise<void>;
+  logout: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   updateProfile: (displayName: string, phone?: string | null) => Promise<void>;
   checkIn: () => Promise<RewardResult>;
@@ -57,6 +63,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<"firebase-anonymous" | "device-only">("device-only");
   const [authVerified, setAuthVerified] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [googleDisplayName, setGoogleDisplayName] = useState<string | null>(null);
+  const [googlePhotoURL, setGooglePhotoURL] = useState<string | null>(null);
   const [user, setUser] = useState<UserDocument | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,10 +82,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setDeviceIdentity(identity);
       setOnboardingComplete(onboardedRaw === "true");
 
-      const auth = await initAnonymousFirebaseAuth();
+      const auth = await getCurrentGoogleAuth();
+      if (!auth) {
+        setFirebaseUid(null);
+        setAuthMode("device-only");
+        setAuthVerified(false);
+        setGoogleEmail(null);
+        setGoogleDisplayName(null);
+        setGooglePhotoURL(null);
+        setApiFirebaseToken(null);
+        setUser(null);
+        return;
+      }
       setFirebaseUid(auth.firebaseUid);
       setAuthMode(auth.authMode);
       setAuthVerified(auth.authVerified);
+      setGoogleEmail(auth.email ?? null);
+      setGoogleDisplayName(auth.displayName ?? null);
+      setGooglePhotoURL(auth.photoURL ?? null);
       setApiFirebaseToken(auth.firebaseToken);
 
       const initialized = await apiInitUser({
@@ -107,6 +130,54 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const applyGoogleAuth = useCallback(async (auth: Awaited<ReturnType<typeof getCurrentGoogleAuth>>) => {
+    if (!auth) throw new Error("Google sign-in did not return an account.");
+    setFirebaseUid(auth.firebaseUid);
+    setAuthMode(auth.authMode);
+    setAuthVerified(auth.authVerified);
+    setGoogleEmail(auth.email ?? null);
+    setGoogleDisplayName(auth.displayName ?? null);
+    setGooglePhotoURL(auth.photoURL ?? null);
+    setApiFirebaseToken(auth.firebaseToken);
+    await initialize();
+  }, [initialize]);
+
+  const signInWithGoogle = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await applyGoogleAuth(await signInWithGooglePopup());
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setIsLoading(false);
+    }
+  }, [applyGoogleAuth]);
+
+  const signInWithGoogleToken = useCallback(async (idToken: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await applyGoogleAuth(await signInWithGoogleIdToken(idToken));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setIsLoading(false);
+    }
+  }, [applyGoogleAuth]);
+
+  const logout = useCallback(async () => {
+    await signOutGoogle();
+    setApiFirebaseToken(null);
+    setFirebaseUid(null);
+    setAuthMode("device-only");
+    setAuthVerified(false);
+    setGoogleEmail(null);
+    setGoogleDisplayName(null);
+    setGooglePhotoURL(null);
+    setUser(null);
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -188,6 +259,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     firebaseUid,
     authMode,
     authVerified,
+    googleEmail,
+    googleDisplayName,
+    googlePhotoURL,
     user,
     deviceIdentity,
     isLoading,
@@ -195,6 +269,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     onboardingComplete,
     refreshUser,
     retryInit: initialize,
+    signInWithGoogle,
+    signInWithGoogleToken,
+    logout,
     completeOnboarding,
     updateProfile,
     checkIn,
@@ -205,7 +282,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     recordUnityRewardedComplete,
     recordUnityInterstitialShown,
     unlockExtraTaskSlot,
-  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, initialize, isLoading, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, spin, startCoinRushGame, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
+  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, googleDisplayName, googleEmail, googlePhotoURL, initialize, isLoading, logout, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, signInWithGoogle, signInWithGoogleToken, spin, startCoinRushGame, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
