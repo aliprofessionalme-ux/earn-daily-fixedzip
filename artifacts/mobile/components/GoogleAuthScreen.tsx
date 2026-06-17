@@ -10,8 +10,11 @@ import { useUser } from "@/contexts/UserContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const gold = "#F2C94C";
+const gold = "#F6C945";
+const amber = "#F59E0B";
 const ink = "#050607";
+const panel = "#101114";
+const line = "rgba(255,255,255,0.11)";
 const text = "#FFF9EA";
 const muted = "#B8B0A0";
 
@@ -21,9 +24,10 @@ function getFriendlyAuthMessage(message?: string | null) {
   if (!raw) return null;
   if (lower.includes("unauthorized-domain")) {
     const host = Platform.OS === "web" && typeof window !== "undefined" ? window.location.hostname : "this app domain";
-    return `Google sign-in is ready. Add ${host} in Firebase Auth > Settings > Authorized domains.`;
+    return `Setup needed: add ${host} in Firebase Authentication > Settings > Authorized domains.`;
   }
-  if (lower.includes("popup") || lower.includes("cancel")) return "Google sign-in was not completed. Please try again.";
+  if (lower.includes("popup-closed") || lower.includes("cancel")) return "Google sign-in was cancelled. Tap the button to try again.";
+  if (lower.includes("popup")) return "Allow popups for this preview, then try Google sign-in again.";
   return raw.replace(/^Firebase:\s*/i, "").replace(/\s*\(auth\/[^)]+\)\.?$/i, ".");
 }
 
@@ -32,7 +36,7 @@ export function GoogleAuthScreen() {
   const { signInWithGoogle, signInWithGoogleToken, error } = useUser();
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const pulse = useRef(new Animated.Value(0)).current;
+  const float = useRef(new Animated.Value(0)).current;
 
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
@@ -46,19 +50,19 @@ export function GoogleAuthScreen() {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(float, { toValue: 1, duration: 1700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(float, { toValue: 0, duration: 1700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [float]);
 
   useEffect(() => {
     if (!response) return;
     if (response.type !== "success") {
       setBusy(false);
-      if (response.type !== "dismiss") setLocalError("Google sign-in was not completed. Please try again.");
+      if (response.type !== "dismiss") setLocalError("Google sign-in was cancelled. Tap the button to try again.");
       return;
     }
     const idToken = (response.params as Record<string, string | undefined>).id_token;
@@ -74,8 +78,8 @@ export function GoogleAuthScreen() {
       .finally(() => setBusy(false));
   }, [response, signInWithGoogleToken]);
 
-  const logoScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] });
-  const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.38] });
+  const coinLift = float.interpolate({ inputRange: [0, 1], outputRange: [0, -9] });
+  const haloOpacity = float.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.34] });
 
   const buttonLabel = useMemo(() => {
     if (busy) return "Signing in...";
@@ -105,53 +109,72 @@ export function GoogleAuthScreen() {
     : getFriendlyAuthMessage(localError ?? error);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 22, paddingBottom: insets.bottom + 22 }]}>
-      <LinearGradient colors={[ink, "#0D0E10", "#151003"]} style={StyleSheet.absoluteFillObject} />
-      <Animated.View style={[styles.goldGlow, { opacity: glowOpacity }]} />
-      <View style={styles.softGlow} />
+    <View style={[styles.root, { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 18 }]}>
+      <LinearGradient colors={[ink, "#0B0C0E", "#171104"]} style={StyleSheet.absoluteFillObject} />
+      <Animated.View style={[styles.halo, { opacity: haloOpacity }]} />
+      <View style={styles.cornerGlow} />
 
-      <View style={styles.header}>
-        <Animated.View style={[styles.logoFrame, { transform: [{ scale: logoScale }] }]}>
-          <OfficialWalletLogo size={62} />
-        </Animated.View>
-        <Text style={styles.appName}>Earn Daily</Text>
-        <Text style={styles.appSub}>Sign in to protect your wallet and rewards</Text>
+      <View style={styles.topBar}>
+        <View style={styles.brandRow}>
+          <View style={styles.smallLogo}>
+            <OfficialWalletLogo size={32} />
+          </View>
+          <View>
+            <Text style={styles.brandName}>Earn Daily</Text>
+            <Text style={styles.brandSub}>Protected rewards account</Text>
+          </View>
+        </View>
+        <View style={styles.lockBadge}>
+          <Feather name="lock" size={17} color={gold} />
+        </View>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.cardTopIcon}>
-          <Feather name="lock" size={18} color={gold} />
-        </View>
-        <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.subtitle}>Use your Google account to continue. Your coins, referrals and withdrawals stay linked safely.</Text>
+      <View style={styles.content}>
+        <Animated.View style={[styles.heroBadge, { transform: [{ translateY: coinLift }] }]}>
+          <View style={styles.heroCoinBack} />
+          <View style={styles.heroCoin}>
+            <Text style={styles.heroCoinText}>$</Text>
+          </View>
+          <View style={styles.heroCard}>
+            <View style={styles.heroLine} />
+            <Text style={styles.heroCardText}>Verified Wallet</Text>
+          </View>
+        </Animated.View>
 
-        <Pressable
-          disabled={busy || missingClientConfig || (Platform.OS !== "web" && !request)}
-          onPress={handleGoogle}
-          style={({ pressed }) => [styles.googleButton, { opacity: pressed ? 0.9 : busy || missingClientConfig ? 0.6 : 1 }]}
-        >
-          {busy ? (
-            <ActivityIndicator color="#1F1F1F" />
-          ) : (
-            <View style={styles.googleIcon}>
-              <Text style={styles.googleIconText}>G</Text>
+        <View style={styles.loginPanel}>
+          <Text style={styles.eyebrow}>GOOGLE SIGN IN</Text>
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>
+            Sign in once and keep your coins, energy, referrals and withdrawals attached to one secure account.
+          </Text>
+
+          <Pressable
+            disabled={busy || missingClientConfig || (Platform.OS !== "web" && !request)}
+            onPress={handleGoogle}
+            style={({ pressed }) => [
+              styles.googleButton,
+              { opacity: pressed ? 0.92 : busy || missingClientConfig ? 0.62 : 1 },
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#202124" />
+            ) : (
+              <View style={styles.googleMark}>
+                <Text style={styles.googleMarkText}>G</Text>
+              </View>
+            )}
+            <Text style={styles.googleText}>{buttonLabel}</Text>
+          </Pressable>
+
+          <View style={styles.benefitRow}>
+            <View style={styles.benefit}>
+              <Feather name="shield" size={15} color={gold} />
+              <Text style={styles.benefitText}>Fraud checked</Text>
             </View>
-          )}
-          <Text style={styles.googleText}>{buttonLabel}</Text>
-        </Pressable>
-
-        <View style={styles.trustRow}>
-          <View style={styles.trustItem}>
-            <Feather name="shield" size={14} color={gold} />
-            <Text style={styles.trustText}>Secure</Text>
-          </View>
-          <View style={styles.trustItem}>
-            <Feather name="refresh-cw" size={14} color={gold} />
-            <Text style={styles.trustText}>Recoverable</Text>
-          </View>
-          <View style={styles.trustItem}>
-            <Feather name="check-circle" size={14} color={gold} />
-            <Text style={styles.trustText}>Verified</Text>
+            <View style={styles.benefit}>
+              <Feather name="credit-card" size={15} color={gold} />
+              <Text style={styles.benefitText}>Wallet secured</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -164,7 +187,7 @@ export function GoogleAuthScreen() {
           </View>
         ) : (
           <Text style={styles.footerText}>
-            {Platform.OS === "web" ? "Google will return you to Earn Daily after verification." : "A secure Google screen will open for verification."}
+            {Platform.OS === "web" ? "A Google popup will open and return you here." : "A secure Google screen will open for verification."}
           </Text>
         )}
       </View>
@@ -173,26 +196,36 @@ export function GoogleAuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 22, backgroundColor: ink },
-  goldGlow: { position: "absolute", width: 260, height: 260, borderRadius: 260, backgroundColor: "rgba(242,201,76,0.24)", top: 88, right: -130 },
-  softGlow: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(255,255,255,0.035)", bottom: -120, left: -130 },
-  header: { alignItems: "center", paddingTop: 8 },
-  logoFrame: { width: 86, height: 86, borderRadius: 28, borderWidth: 1, borderColor: "rgba(242,201,76,0.55)", backgroundColor: "rgba(255,255,255,0.05)", alignItems: "center", justifyContent: "center", shadowColor: gold, shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
-  appName: { color: text, fontFamily: "Inter_800ExtraBold", fontSize: 30, lineHeight: 36, marginTop: 16, textAlign: "center" },
-  appSub: { color: muted, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 18, marginTop: 4, textAlign: "center" },
-  card: { marginTop: 28, borderWidth: 1, borderColor: "rgba(255,255,255,0.11)", borderRadius: 24, backgroundColor: "rgba(255,255,255,0.065)", padding: 18, alignItems: "center" },
-  cardTopIcon: { width: 42, height: 42, borderRadius: 14, borderWidth: 1, borderColor: "rgba(242,201,76,0.35)", backgroundColor: "rgba(242,201,76,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  title: { color: text, fontFamily: "Inter_800ExtraBold", fontSize: 28, lineHeight: 34, textAlign: "center" },
-  subtitle: { color: muted, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: "center", maxWidth: 290 },
-  googleButton: { width: "100%", minHeight: 54, borderRadius: 16, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 20, paddingHorizontal: 16 },
-  googleIcon: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAFC" },
-  googleIconText: { color: "#4285F4", fontFamily: "Inter_800ExtraBold", fontSize: 18, lineHeight: 22 },
-  googleText: { color: "#1F1F1F", fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 19 },
-  trustRow: { width: "100%", flexDirection: "row", justifyContent: "space-between", gap: 8, marginTop: 16 },
-  trustItem: { flex: 1, minHeight: 40, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.045)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 5 },
-  trustText: { color: text, fontFamily: "Inter_600SemiBold", fontSize: 11, lineHeight: 14 },
-  footer: { flex: 1, justifyContent: "flex-end", paddingBottom: 2 },
+  root: { flex: 1, paddingHorizontal: 20, backgroundColor: ink },
+  halo: { position: "absolute", width: 300, height: 300, borderRadius: 300, backgroundColor: "rgba(246,201,69,0.24)", top: 82, right: -135 },
+  cornerGlow: { position: "absolute", width: 240, height: 240, borderRadius: 240, backgroundColor: "rgba(255,255,255,0.04)", bottom: -105, left: -110 },
+  topBar: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  smallLogo: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: "rgba(246,201,69,0.58)", backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
+  brandName: { color: text, fontFamily: "Inter_800ExtraBold", fontSize: 16, lineHeight: 20 },
+  brandSub: { color: muted, fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginTop: 1 },
+  lockBadge: { width: 40, height: 40, borderRadius: 14, borderWidth: 1, borderColor: "rgba(246,201,69,0.45)", backgroundColor: "rgba(246,201,69,0.08)", alignItems: "center", justifyContent: "center" },
+  content: { flex: 1, justifyContent: "center", paddingBottom: 8 },
+  heroBadge: { alignSelf: "center", width: 210, height: 160, alignItems: "center", justifyContent: "flex-end", marginBottom: 12 },
+  heroCoinBack: { position: "absolute", top: 14, width: 86, height: 86, borderRadius: 43, backgroundColor: "rgba(246,201,69,0.48)", right: 47 },
+  heroCoin: { position: "absolute", top: 0, width: 82, height: 82, borderRadius: 41, backgroundColor: gold, borderWidth: 3, borderColor: "#FFE899", alignItems: "center", justifyContent: "center", shadowColor: gold, shadowOpacity: 0.36, shadowRadius: 22, shadowOffset: { width: 0, height: 12 } },
+  heroCoinText: { color: "#4A3200", fontFamily: "Inter_800ExtraBold", fontSize: 25, lineHeight: 30 },
+  heroCard: { width: 198, minHeight: 88, borderRadius: 24, borderWidth: 1, borderColor: "rgba(246,201,69,0.55)", backgroundColor: panel, alignItems: "center", justifyContent: "center", paddingTop: 14 },
+  heroLine: { position: "absolute", top: 25, left: 28, right: 28, height: 1, backgroundColor: "rgba(246,201,69,0.7)" },
+  heroCardText: { color: text, fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 20, marginTop: 16 },
+  loginPanel: { borderWidth: 1, borderColor: line, borderRadius: 26, backgroundColor: "rgba(255,255,255,0.065)", padding: 18 },
+  eyebrow: { color: gold, fontFamily: "Inter_800ExtraBold", fontSize: 11, lineHeight: 14, letterSpacing: 0, textAlign: "center" },
+  title: { color: text, fontFamily: "Inter_800ExtraBold", fontSize: 32, lineHeight: 38, marginTop: 8, textAlign: "center" },
+  subtitle: { color: muted, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: "center" },
+  googleButton: { width: "100%", minHeight: 56, borderRadius: 18, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 20, paddingHorizontal: 16, shadowColor: amber, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
+  googleMark: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAFC" },
+  googleMarkText: { color: "#4285F4", fontFamily: "Inter_800ExtraBold", fontSize: 18, lineHeight: 22 },
+  googleText: { color: "#202124", fontFamily: "Inter_800ExtraBold", fontSize: 15, lineHeight: 19 },
+  benefitRow: { flexDirection: "row", gap: 10, marginTop: 14 },
+  benefit: { flex: 1, minHeight: 44, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.045)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 8 },
+  benefitText: { color: text, fontFamily: "Inter_700Bold", fontSize: 11, lineHeight: 14 },
+  footer: { minHeight: 50, justifyContent: "flex-end" },
   footerText: { color: muted, fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 17, textAlign: "center" },
-  noticeBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderColor: "rgba(242,201,76,0.25)", borderRadius: 14, backgroundColor: "rgba(242,201,76,0.08)", padding: 12 },
+  noticeBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderColor: "rgba(246,201,69,0.28)", borderRadius: 15, backgroundColor: "rgba(246,201,69,0.09)", padding: 12 },
   noticeText: { flex: 1, color: text, fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 17 },
 });
