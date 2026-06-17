@@ -11,6 +11,7 @@ import {
   initUser,
   serializeDoc,
   serializeUser,
+  verifyFirebaseToken,
 } from "../services/firebase-admin.js";
 import { getTaskSlotStatus, unlockExtraTaskSlot } from "../services/taskSlots.js";
 import { startCoinRushGame } from "../services/coinRush.js";
@@ -87,7 +88,26 @@ router.post("/init", async (req, res) => {
   }
 
   try {
-    const result = await initUser(parsed.data);
+    const decoded = await verifyFirebaseToken(parsed.data.firebaseToken);
+    if (!decoded && process.env["ALLOW_DEVICE_ONLY_AUTH"] !== "true") {
+      res.status(401).json({ error: "Verified Google sign-in is required.", code: "google_auth_required" });
+      return;
+    }
+    const provider = String((decoded as { firebase?: { sign_in_provider?: string } } | null)?.firebase?.sign_in_provider ?? "");
+    if (provider === "anonymous" && process.env["ALLOW_ANONYMOUS_AUTH"] !== "true") {
+      res.status(401).json({ error: "Google sign-in is required.", code: "google_auth_required" });
+      return;
+    }
+    const result = await initUser(
+      decoded
+        ? {
+            ...parsed.data,
+            firebaseUid: decoded.uid,
+            authMode: "firebase-anonymous",
+            authVerified: true,
+          }
+        : parsed.data,
+    );
     await ensureReferralCode(result.user.deviceId);
     try {
       await applyFraudRiskSignals({
@@ -140,18 +160,12 @@ router.get("/:deviceId", requireFirebaseAuth, async (req, res) => {
 router.patch("/:deviceId/profile", requireFirebaseAuth, async (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Name must be 2 to 40 characters. Phone is optional.", code: "invalid_profile" });
+    res.status(400).json({ error: "Display name must be at least 2 characters.", code: "invalid_profile_request" });
     return;
   }
-
   try {
-    const deviceId = String(req.params.deviceId);
-    const profileUpdate = Object.prototype.hasOwnProperty.call(req.body ?? {}, "phone")
-      ? { displayName: parsed.data.displayName, phone: parsed.data.phone ?? null }
-      : { displayName: parsed.data.displayName };
-    await updateUserProfile(deviceId, profileUpdate);
-    const user = await getUserDoc(deviceId);
-    res.json({ success: true, user: user ? serializeUser(user) : null });
+    const updated = await updateUserProfile(String(req.params.deviceId), parsed.data);
+    res.json({ success: true, user: updated });
   } catch (err) {
     req.log.error({ err }, "Error updating profile");
     sendError(res, err, "Unable to update profile.");
@@ -164,23 +178,23 @@ router.post("/:deviceId/push-token", requireFirebaseAuth, async (req, res) => {
     res.status(400).json({ error: "Valid Expo push token is required.", code: "invalid_push_token" });
     return;
   }
-
   try {
-    const result = await registerPushToken(String(req.params.deviceId), parsed.data);
-    res.status(result.success ? 200 : 400).json(result);
+    await registerPushToken(String(req.params.deviceId), parsed.data);
+    res.json({ success: true, message: "Push token registered." });
   } catch (err) {
     req.log.error({ err }, "Error registering push token");
-    sendError(res, err, "Unable to enable push notifications.");
+    sendError(res, err, "Unable to register push token.");
   }
 });
 
 router.delete("/:deviceId/push-token", requireFirebaseAuth, async (req, res) => {
-  const token = String(req.body?.token ?? req.query.token ?? "");
+  const token = typeof req.body?.token === "string" ? req.body.token : null;
   try {
-    res.json(await unregisterPushToken(String(req.params.deviceId), token));
+    await unregisterPushToken(String(req.params.deviceId), token);
+    res.json({ success: true, message: "Push token removed." });
   } catch (err) {
-    req.log.error({ err }, "Error unregistering push token");
-    sendError(res, err, "Unable to disable push notifications.");
+    req.log.error({ err }, "Error removing push token");
+    sendError(res, err, "Unable to remove push token.");
   }
 });
 
@@ -188,7 +202,7 @@ router.get("/:deviceId/referral", requireFirebaseAuth, async (req, res) => {
   try {
     res.json(await getReferralSummary(String(req.params.deviceId)));
   } catch (err) {
-    req.log.error({ err }, "Error fetching referral summary");
+    req.log.error({ err }, "Error loading referral summary");
     sendError(res, err, "Unable to load referral summary.");
   }
 });
@@ -196,12 +210,12 @@ router.get("/:deviceId/referral", requireFirebaseAuth, async (req, res) => {
 router.post("/:deviceId/referral/apply", requireFirebaseAuth, async (req, res) => {
   const parsed = referralApplySchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Enter a valid referral code.", code: "invalid_referral_code" });
+    res.status(400).json({ error: "Valid referral code is required.", code: "invalid_referral_code" });
     return;
   }
-
   try {
-    res.json(await applyReferralCode(String(req.params.deviceId), parsed.data.referralCode));
+    const outcome = await applyReferralCode(String(req.params.deviceId), parsed.data.referralCode);
+    res.json(outcome);
   } catch (err) {
     req.log.error({ err }, "Error applying referral code");
     sendError(res, err, "Unable to apply referral code.");
@@ -210,74 +224,67 @@ router.post("/:deviceId/referral/apply", requireFirebaseAuth, async (req, res) =
 
 router.get("/:deviceId/transactions", requireFirebaseAuth, async (req, res) => {
   try {
-    const db = getFirestoreDb();
-    const deviceId = String(req.params.deviceId);
-    let snap;
-    try {
-      snap = await db.collection("coinTransactions").where("deviceId", "==", deviceId).orderBy("createdAt", "desc").limit(100).get();
-    } catch (indexErr) {
-      const msg = indexErr instanceof Error ? indexErr.message : "";
-      if (msg.includes("FAILED_PRECONDITION") || msg.includes("requires an index")) {
-        const fallback = await db.collection("coinTransactions").where("deviceId", "==", deviceId).limit(500).get();
-        const sorted = fallback.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() } as Record<string, unknown>))
-          .sort((a, b) => {
-            const at = (a.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(0);
-            const bt = (b.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(0);
-            return bt.getTime() - at.getTime();
-          })
-          .slice(0, 100);
-        res.json(sorted.map((d) => serializeDoc(d)));
-        return;
-      }
-      throw indexErr;
-    }
-    res.json(snap.docs.map((doc) => serializeDoc({ id: doc.id, ...doc.data() })));
+    const snap = await getFirestoreDb()
+      .collection("transactions")
+      .where("deviceId", "==", String(req.params.deviceId))
+      .orderBy("createdAt", "desc")
+      .limit(80)
+      .get();
+    res.json(snap.docs.map((doc) => serializeDoc(doc)));
   } catch (err) {
     req.log.error({ err }, "Error fetching transactions");
-    sendError(res, err, "Unable to load transaction history.");
+    sendError(res, err, "Unable to fetch transactions.");
+  }
+});
+
+router.get("/:deviceId/withdrawals", requireFirebaseAuth, async (req, res) => {
+  try {
+    const snap = await getFirestoreDb()
+      .collection("withdrawals")
+      .where("deviceId", "==", String(req.params.deviceId))
+      .orderBy("createdAt", "desc")
+      .limit(40)
+      .get();
+    res.json(snap.docs.map((doc) => serializeDoc(doc)));
+  } catch (err) {
+    req.log.error({ err }, "Error fetching withdrawals");
+    sendError(res, err, "Unable to fetch withdrawals.");
   }
 });
 
 router.get("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
   try {
-    const db = getFirestoreDb();
-    const deviceId = String(req.params.deviceId);
-    const snap = await db.collection("supportTickets").where("deviceId", "==", deviceId).orderBy("createdAt", "desc").limit(50).get();
-    res.json(snap.docs.map((doc) => serializeDoc({ id: doc.id, ...doc.data() })));
+    const snap = await getFirestoreDb()
+      .collection("supportTickets")
+      .where("deviceId", "==", String(req.params.deviceId))
+      .orderBy("createdAt", "desc")
+      .limit(40)
+      .get();
+    res.json(snap.docs.map((doc) => serializeDoc(doc)));
   } catch (err) {
     req.log.error({ err }, "Error fetching support tickets");
-    sendError(res, err, "Unable to load support tickets.");
+    sendError(res, err, "Unable to fetch support tickets.");
   }
 });
 
 router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
   const parsed = supportSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Choose an issue type and enter a message of at least 5 characters.", code: "invalid_support_request" });
+    res.status(400).json({ error: "Issue type and message are required.", code: "invalid_support_ticket" });
     return;
   }
 
   try {
-    const deviceId = String(req.params.deviceId);
-    const user = await getUserDoc(deviceId);
-    if (!user) {
-      res.status(404).json({ error: "User not found.", code: "user_not_found" });
-      return;
-    }
-    const db = getFirestoreDb();
-    const ticketRef = db.collection("supportTickets").doc();
-    const ticket = {
-      ticketId: ticketRef.id,
-      deviceId,
-      issueType: parsed.data.issueType.trim(),
-      message: parsed.data.message.trim(),
+    const docRef = await getFirestoreDb().collection("supportTickets").add({
+      deviceId: String(req.params.deviceId),
+      issueType: parsed.data.issueType,
+      message: parsed.data.message,
       status: "open",
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
-    await ticketRef.set(ticket);
-    res.json({ success: true, ...ticket, createdAt: ticket.createdAt.toISOString(), updatedAt: ticket.updatedAt.toISOString() });
+    });
+    const snap = await docRef.get();
+    res.json({ success: true, ...serializeDoc(snap) });
   } catch (err) {
     req.log.error({ err }, "Error creating support ticket");
     sendError(res, err, "Unable to create support ticket.");
@@ -286,56 +293,32 @@ router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
 
 router.post("/:deviceId/checkin", requireFirebaseAuth, async (req, res) => {
   try {
-    const result = await creditCheckIn(String(req.params.deviceId));
-    await recordDailyEnergy(String(req.params.deviceId), Number(result.energyAwarded ?? 0));
-    res.json(result);
+    res.json(await creditCheckIn(String(req.params.deviceId)));
   } catch (err) {
-    req.log.error({ err }, "Error during check-in");
-    sendError(res, err, "Reward failed. Please try again.");
+    req.log.error({ err }, "Check-in failed");
+    sendError(res, err, "Unable to complete daily check-in.");
   }
 });
 
 router.post("/:deviceId/spin", requireFirebaseAuth, async (req, res) => {
   try {
-    const deviceId = String(req.params.deviceId);
-    const result = await creditSpin(deviceId);
-    const baseEnergyAwarded = Number(result.energyAwarded ?? 0);
-    const energyAwarded = Math.max(baseEnergyAwarded, pickEnergyReward(SPIN_REWARDS));
-    const adjusted = await topUpEnergyToReward(deviceId, baseEnergyAwarded, energyAwarded, "Spin random Energy bonus");
-    await recordDailyEnergy(deviceId, energyAwarded);
-
-    res.json({
-      ...result,
-      message: `You won ${energyAwarded} Energy!`,
-      energyAwarded,
-      balanceAfterEnergy: adjusted?.energyAfter ?? result.balanceAfterEnergy,
-      rewardSegments: SPIN_REWARDS,
-    });
+    const result = await creditSpin(String(req.params.deviceId), pickEnergyReward(SPIN_REWARDS));
+    const toppedUp = await topUpEnergyToReward(String(req.params.deviceId), result.energyAwarded ?? 0, 1, "spin_random_topup");
+    res.json(toppedUp ? { ...result, energyAwarded: toppedUp.energyChange, balanceAfterEnergy: toppedUp.energyBalance } : result);
   } catch (err) {
-    req.log.error({ err }, "Error recording spin");
-    sendError(res, err, "Spin reward failed. Please try again.");
+    req.log.error({ err }, "Spin failed");
+    sendError(res, err, "Unable to spin right now.");
   }
 });
 
 router.post("/:deviceId/scratch", requireFirebaseAuth, async (req, res) => {
   try {
-    const deviceId = String(req.params.deviceId);
-    const result = await creditScratch(deviceId);
-    const baseEnergyAwarded = Number(result.energyAwarded ?? 0);
-    const energyAwarded = Math.max(baseEnergyAwarded, pickEnergyReward(SCRATCH_REWARDS));
-    const adjusted = await topUpEnergyToReward(deviceId, baseEnergyAwarded, energyAwarded, "Scratch random Energy bonus");
-    await recordDailyEnergy(deviceId, energyAwarded);
-
-    res.json({
-      ...result,
-      message: `You won ${energyAwarded} Energy!`,
-      energyAwarded,
-      balanceAfterEnergy: adjusted?.energyAfter ?? result.balanceAfterEnergy,
-      rewardSegments: SCRATCH_REWARDS,
-    });
+    const result = await creditScratch(String(req.params.deviceId), pickEnergyReward(SCRATCH_REWARDS));
+    const toppedUp = await topUpEnergyToReward(String(req.params.deviceId), result.energyAwarded ?? 0, 1, "scratch_random_topup");
+    res.json(toppedUp ? { ...result, energyAwarded: toppedUp.energyChange, balanceAfterEnergy: toppedUp.energyBalance } : result);
   } catch (err) {
-    req.log.error({ err }, "Error recording scratch");
-    sendError(res, err, "Scratch reward failed. Please try again.");
+    req.log.error({ err }, "Scratch failed");
+    sendError(res, err, "Unable to scratch right now.");
   }
 });
 
@@ -343,39 +326,30 @@ router.post("/:deviceId/games/coin-rush/start", requireFirebaseAuth, async (req,
   try {
     res.json(await startCoinRushGame(String(req.params.deviceId)));
   } catch (err) {
-    req.log.error({ err }, "Error starting Coin Rush");
+    req.log.error({ err }, "Coin Rush start failed");
     sendError(res, err, "Unable to start Coin Rush.");
   }
 });
 
-router.get("/:deviceId/offer-events", requireFirebaseAuth, async (req, res) => {
+router.post("/:deviceId/ads/unity/rewarded-complete", requireFirebaseAuth, async (req, res) => {
   try {
-    const db = getFirestoreDb();
-    const deviceId = String(req.params.deviceId);
-    let snap;
-    try {
-      snap = await db.collection("offerEvents").where("deviceId", "==", deviceId).orderBy("createdAt", "desc").limit(100).get();
-    } catch (indexErr) {
-      const msg = indexErr instanceof Error ? indexErr.message : "";
-      if (msg.includes("FAILED_PRECONDITION") || msg.includes("requires an index")) {
-        const fallback = await db.collection("offerEvents").where("deviceId", "==", deviceId).limit(500).get();
-        const sorted = fallback.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() } as Record<string, unknown>))
-          .sort((a, b) => {
-            const at = (a.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(0);
-            const bt = (b.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date(0);
-            return bt.getTime() - at.getTime();
-          })
-          .slice(0, 100);
-        res.json(sorted.map((d) => serializeDoc(d)));
-        return;
-      }
-      throw indexErr;
-    }
-    res.json(snap.docs.map((doc) => serializeDoc({ id: doc.id, ...doc.data() })));
+    const { recordUnityRewardedComplete } = await import("../services/firebase-admin.js");
+    const placementId = typeof req.body?.placementId === "string" ? req.body.placementId : undefined;
+    res.json(await recordUnityRewardedComplete(String(req.params.deviceId), placementId));
   } catch (err) {
-    req.log.error({ err }, "Error fetching offer events");
-    sendError(res, err, "Unable to load offer events.");
+    req.log.error({ err }, "Unity rewarded completion failed");
+    sendError(res, err, "Unable to record Unity reward.");
+  }
+});
+
+router.post("/:deviceId/ads/unity/interstitial-shown", requireFirebaseAuth, async (req, res) => {
+  try {
+    const placementId = typeof req.body?.placementId === "string" ? req.body.placementId : undefined;
+    await recordDailyEnergy(String(req.params.deviceId), 0, { source: "unity_interstitial", placementId: placementId ?? null });
+    res.json({ success: true, message: placementId ? `Unity interstitial tracked for ${placementId}.` : "Unity interstitial tracked." });
+  } catch (err) {
+    req.log.error({ err }, "Unity interstitial tracking failed");
+    sendError(res, err, "Unable to track Unity interstitial.");
   }
 });
 
@@ -383,18 +357,32 @@ router.get("/:deviceId/task-slots/status", requireFirebaseAuth, async (req, res)
   try {
     res.json(await getTaskSlotStatus(String(req.params.deviceId)));
   } catch (err) {
-    req.log.error({ err }, "Error fetching task slot status");
-    sendError(res, err, "Unable to load task slots.");
+    req.log.error({ err }, "Task slot status failed");
+    sendError(res, err, "Unable to load task slot status.");
   }
 });
 
 router.post("/:deviceId/task-slots/unlock", requireFirebaseAuth, async (req, res) => {
   try {
-    const deviceId = String(req.params.deviceId);
-    res.json(await unlockExtraTaskSlot(deviceId));
+    res.json(await unlockExtraTaskSlot(String(req.params.deviceId)));
   } catch (err) {
-    req.log.error({ err }, "Error unlocking task slot");
-    sendError(res, err, "Unable to unlock task slot.");
+    req.log.error({ err }, "Task slot unlock failed");
+    sendError(res, err, "Unable to unlock extra task slot.");
+  }
+});
+
+router.get("/:deviceId/offer-events", requireFirebaseAuth, async (req, res) => {
+  try {
+    const snap = await getFirestoreDb()
+      .collection("offerEvents")
+      .where("deviceId", "==", String(req.params.deviceId))
+      .orderBy("createdAt", "desc")
+      .limit(60)
+      .get();
+    res.json(snap.docs.map((doc) => serializeDoc(doc)));
+  } catch (err) {
+    req.log.error({ err }, "Error fetching offer events");
+    sendError(res, err, "Unable to fetch offer events.");
   }
 });
 
