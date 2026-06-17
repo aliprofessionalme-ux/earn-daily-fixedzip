@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AppSplash } from "@/components/AppSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GoogleAuthScreen } from "@/components/GoogleAuthScreen";
 import { Onboarding } from "@/components/Onboarding";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { UserProvider, useUser } from "@/contexts/UserContext";
@@ -44,7 +45,7 @@ function RootStack() {
 }
 
 function AppGate() {
-  const { isLoading, error, retryInit, onboardingComplete, completeOnboarding, user } = useUser();
+  const { isLoading, error, retryInit, onboardingComplete, completeOnboarding, user, firebaseUid } = useUser();
   const hasRequiredProfile = Boolean(user?.displayName?.trim() && user.displayName.trim().length >= 2);
 
   useEffect(() => {
@@ -52,6 +53,7 @@ function AppGate() {
   }, []);
 
   if (isLoading) return <AppSplash />;
+  if (!firebaseUid || !user) return <GoogleAuthScreen />;
   if (error) return <AppSplash error={error} onRetry={retryInit} />;
   if (!onboardingComplete || !hasRequiredProfile) return <Onboarding onDone={() => void completeOnboarding()} />;
   return <RootStack />;
