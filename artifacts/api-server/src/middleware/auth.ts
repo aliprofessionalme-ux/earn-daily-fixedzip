@@ -21,6 +21,12 @@ export async function requireFirebaseAuth(req: Request, res: Response, next: Nex
     return;
   }
 
+  const provider = String((decoded as { firebase?: { sign_in_provider?: string } }).firebase?.sign_in_provider ?? "");
+  if (provider === "anonymous" && process.env["ALLOW_ANONYMOUS_AUTH"] !== "true") {
+    res.status(401).json({ error: "Google sign-in is required.", code: "google_auth_required" });
+    return;
+  }
+
   // Attach decoded token to request for downstream use
   (req as unknown as Record<string, unknown>)["firebaseAuth"] = decoded;
 
