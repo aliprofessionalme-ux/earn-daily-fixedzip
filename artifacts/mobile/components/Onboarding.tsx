@@ -78,6 +78,8 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <LinearGradient colors={["#050607", "#111318", "#181205"]} style={StyleSheet.absoluteFillObject} />
+      <View style={styles.goldGlow} />
+      <View style={styles.softGlow} />
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={[styles.hero, { borderColor: colors.gold + "44" }]}> 
           <View style={[styles.heroBadge, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "55" }]}> 
@@ -87,9 +89,33 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
           <OfficialWalletLogo size={76} />
           <Text style={[styles.title, { color: colors.foreground }]}>Create your Earn Daily profile</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Set your public name now. Phone and referral details can be updated from Profile later.</Text>
+          <View style={styles.heroStats}>
+            <View style={[styles.heroStatCard, { borderColor: colors.border, backgroundColor: colors.background + "CC" }]}>
+              <Text style={[styles.heroStatValue, { color: colors.gold }]}>1</Text>
+              <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>Verified ID</Text>
+            </View>
+            <View style={[styles.heroStatCard, { borderColor: colors.border, backgroundColor: colors.background + "CC" }]}>
+              <Text style={[styles.heroStatValue, { color: colors.green }]}>Safe</Text>
+              <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>Wallet link</Text>
+            </View>
+            <View style={[styles.heroStatCard, { borderColor: colors.border, backgroundColor: colors.background + "CC" }]}>
+              <Text style={[styles.heroStatValue, { color: colors.orange }]}>QR</Text>
+              <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>Referral ready</Text>
+            </View>
+          </View>
         </View>
 
         <View style={[styles.setupCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <View style={styles.cardHeader}>
+            <View>
+              <Text style={[styles.cardEyebrow, { color: colors.gold }]}>PROFILE DETAILS</Text>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Finish account setup</Text>
+            </View>
+            <View style={[styles.cardBadge, { borderColor: colors.gold + "44", backgroundColor: colors.gold + "14" }]}>
+              <Feather name="user-check" size={14} color={colors.gold} />
+            </View>
+          </View>
+
           <Text style={[styles.inputLabel, { color: colors.foreground }]}>Username *</Text>
           <TextInput
             value={displayName}
@@ -159,12 +185,22 @@ export function Onboarding({ onDone }: { onDone: () => void | Promise<void> }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  goldGlow: { position: "absolute", width: 280, height: 280, borderRadius: 280, backgroundColor: "rgba(242,201,76,0.12)", top: 90, right: -150 },
+  softGlow: { position: "absolute", width: 320, height: 320, borderRadius: 320, backgroundColor: "rgba(255,255,255,0.04)", bottom: -140, left: -130 },
   hero: { borderWidth: 1, borderRadius: 22, padding: 18, alignItems: "center", backgroundColor: "rgba(255,255,255,0.055)", marginBottom: 14 },
   heroBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 },
   heroBadgeText: { fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 12, letterSpacing: 0 },
   title: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 30, textAlign: "center", marginTop: 10 },
   subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: 6 },
-  setupCard: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 8, marginBottom: 14 },
+  heroStats: { width: "100%", flexDirection: "row", gap: 10, marginTop: 16 },
+  heroStatCard: { flex: 1, borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
+  heroStatValue: { fontFamily: "Inter_800ExtraBold", fontSize: 16, lineHeight: 20 },
+  heroStatLabel: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 14, textAlign: "center", marginTop: 4 },
+  setupCard: { borderWidth: 1, borderRadius: 22, padding: 16, gap: 8, marginBottom: 14 },
+  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
+  cardEyebrow: { fontFamily: "Inter_700Bold", fontSize: 10, lineHeight: 12 },
+  cardTitle: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 22, marginTop: 4 },
+  cardBadge: { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   inputLabel: { fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 16, marginTop: 2 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: Platform.OS === "web" ? 12 : 11, fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18 },
   referralRow: { flexDirection: "row", gap: 8, alignItems: "center" },
