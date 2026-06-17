@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { Platform } from "react-native";
 import { getStoredValue, setStoredValue } from "@/services/localStore";
 import { getDeviceIdentity, setCanonicalDeviceId, type DeviceIdentity } from "@/services/deviceIdentity";
 import { getCurrentGoogleAuth, signInWithGoogleIdToken, signInWithGooglePopup, signOutGoogle } from "@/services/firebaseClient";
@@ -145,13 +146,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [initialize]);
 
   const signInWithGoogle = useCallback(async () => {
-    setIsLoading(true);
+    const useFullScreenLoading = Platform.OS !== "web";
+    if (useFullScreenLoading) setIsLoading(true);
     setError(null);
     try {
       const result = await signInWithGooglePopup();
       if (!result.firebaseUid && !result.firebaseToken && typeof window !== "undefined") {
         return;
       }
+      if (!useFullScreenLoading) setIsLoading(true);
       await applyGoogleAuth(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
