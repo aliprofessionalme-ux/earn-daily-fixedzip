@@ -81,6 +81,13 @@ async function getTokenResult(user: FirebaseAuth.User): Promise<AuthResult> {
 
 export async function getCurrentGoogleAuth(): Promise<AuthResult | null> {
   const auth = getFirebaseAuth();
+  if (Platform.OS === "web") {
+    try {
+      await withTimeout(FirebaseAuth.getRedirectResult(auth), 12000, "Google redirect sign-in");
+    } catch {
+      // Ignore redirect completion errors here and let the caller show auth errors on direct sign-in.
+    }
+  }
   const user = auth.currentUser ?? await withTimeout(
     new Promise<FirebaseAuth.User | null>((resolve) => {
       const unsubscribe = FirebaseAuth.onAuthStateChanged(auth, (currentUser) => {
@@ -100,6 +107,15 @@ export async function signInWithGooglePopup(): Promise<AuthResult> {
   const auth = getFirebaseAuth();
   const provider = new FirebaseAuth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
+  if (Platform.OS === "web") {
+    await withTimeout(FirebaseAuth.signInWithRedirect(auth, provider), 20000, "Google redirect sign-in");
+    return {
+      firebaseUid: null,
+      firebaseToken: null,
+      authMode: "device-only",
+      authVerified: false,
+    };
+  }
   const credential = await withTimeout(FirebaseAuth.signInWithPopup(auth, provider), 20000, "Google sign-in");
   return getTokenResult(credential.user);
 }
