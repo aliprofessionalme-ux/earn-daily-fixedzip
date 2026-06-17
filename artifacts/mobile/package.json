@@ -58,6 +58,7 @@
   },
   "dependencies": {
     "expo-application": "^55.0.15",
+    "expo-auth-session": "~7.0.8",
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "^55.0.14",
     "firebase": "^12.13.0",
