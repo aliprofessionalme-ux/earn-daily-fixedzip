@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "setup:google-sheet": "node ./setup-professional-google-sheet.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "googleapis": "^172.0.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
