@@ -54,12 +54,13 @@ function getPalette(themeKey: ThemeKey): Palette {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeKey, setThemeKeyState] = useState<ThemeKey>("primary");
+  const [themeKey, setThemeKeyState] = useState<ThemeKey>("midnightGold");
 
   useEffect(() => {
     let mounted = true;
     getStoredValue(THEME_STORAGE_KEY).then((stored) => {
-      if (mounted && isThemeKey(stored)) setThemeKeyState(stored);
+      if (!mounted || !isThemeKey(stored)) return;
+      setThemeKeyState(stored === "primary" ? "midnightGold" : stored);
     }).catch(() => {});
     return () => { mounted = false; };
   }, []);
@@ -83,8 +84,8 @@ export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
   if (context) return context;
   return {
-    themeKey: "primary",
-    palette: colors.light,
+    themeKey: "midnightGold",
+    palette: colors.midnightGold,
     radius: colors.radius,
     setThemeKey: async (_key: ThemeKey) => {},
   };
