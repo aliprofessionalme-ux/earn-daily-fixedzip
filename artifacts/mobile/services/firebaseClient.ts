@@ -136,6 +136,30 @@ export async function signInWithGoogleIdToken(idToken: string): Promise<AuthResu
   return getTokenResult(result.user);
 }
 
+export async function signInWithEmailPassword(email: string, password: string): Promise<AuthResult> {
+  const auth = getFirebaseAuth();
+  const result = await withTimeout(
+    FirebaseAuth.signInWithEmailAndPassword(auth, email.trim(), password),
+    20000,
+    "Email sign-in",
+  );
+  return getTokenResult(result.user);
+}
+
+export async function createAccountWithEmailPassword(email: string, password: string, displayName: string): Promise<AuthResult> {
+  const auth = getFirebaseAuth();
+  const result = await withTimeout(
+    FirebaseAuth.createUserWithEmailAndPassword(auth, email.trim(), password),
+    20000,
+    "Email sign-up",
+  );
+  const cleanName = displayName.trim();
+  if (cleanName) {
+    await withTimeout(FirebaseAuth.updateProfile(result.user, { displayName: cleanName }), 8000, "Profile setup");
+  }
+  return getTokenResult(result.user);
+}
+
 export async function signOutGoogle(): Promise<void> {
   await FirebaseAuth.signOut(getFirebaseAuth());
 }
