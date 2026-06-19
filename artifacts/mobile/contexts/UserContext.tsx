@@ -2,7 +2,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { Platform } from "react-native";
 import { getStoredValue, setStoredValue } from "@/services/localStore";
 import { getDeviceIdentity, setCanonicalDeviceId, type DeviceIdentity } from "@/services/deviceIdentity";
-import { getCurrentGoogleAuth, signInWithGoogleIdToken, signInWithGooglePopup, signOutGoogle } from "@/services/firebaseClient";
+import {
+  createAccountWithEmailPassword,
+  getCurrentGoogleAuth,
+  signInWithEmailPassword,
+  signInWithGoogleIdToken,
+  signInWithGooglePopup,
+  signOutGoogle,
+} from "@/services/firebaseClient";
 import { registerDevicePushNotifications } from "@/services/pushNotifications";
 import {
   checkIn as apiCheckIn,
@@ -44,6 +51,8 @@ interface UserContextType {
   retryInit: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithGoogleToken: (idToken: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (displayName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   updateProfile: (displayName: string, phone?: string | null) => Promise<void>;
@@ -175,6 +184,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [applyGoogleAuth]);
 
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await applyGoogleAuth(await signInWithEmailPassword(email, password));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setIsLoading(false);
+      throw err;
+    }
+  }, [applyGoogleAuth]);
+
+  const signUpWithEmail = useCallback(async (displayName: string, email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await applyGoogleAuth(await createAccountWithEmailPassword(email, password, displayName));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setIsLoading(false);
+      throw err;
+    }
+  }, [applyGoogleAuth]);
+
   const logout = useCallback(async () => {
     await signOutGoogle();
     setApiFirebaseToken(null);
@@ -278,6 +313,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     retryInit: initialize,
     signInWithGoogle,
     signInWithGoogleToken,
+    signInWithEmail,
+    signUpWithEmail,
     logout,
     completeOnboarding,
     updateProfile,
@@ -289,7 +326,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     recordUnityRewardedComplete,
     recordUnityInterstitialShown,
     unlockExtraTaskSlot,
-  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, googleDisplayName, googleEmail, googlePhotoURL, initialize, isLoading, logout, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, signInWithGoogle, signInWithGoogleToken, spin, startCoinRushGame, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
+  }), [authMode, authVerified, checkIn, completeOnboarding, deviceIdentity, error, firebaseUid, googleDisplayName, googleEmail, googlePhotoURL, initialize, isLoading, logout, onboardingComplete, refreshUser, recordUnityInterstitialShown, recordUnityRewardedComplete, scratch, signInWithEmail, signInWithGoogle, signInWithGoogleToken, signUpWithEmail, spin, startCoinRushGame, submitWithdrawal, unlockExtraTaskSlot, updateProfile, user]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
