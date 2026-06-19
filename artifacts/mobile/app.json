@@ -19,6 +19,7 @@
     "android": {
       "backgroundColor": "#050607",
       "package": "com.earndaily.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#050607"
