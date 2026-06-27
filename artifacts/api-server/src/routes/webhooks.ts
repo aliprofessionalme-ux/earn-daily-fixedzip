@@ -71,13 +71,17 @@ function safeEq(a?: string | null, b?: string | null): boolean {
 function providerSecrets(provider: Provider) {
   if (provider === "monlix") return [process.env["MONLIX_API_SECRET"], process.env["MONLIX_SECRET"]].filter(Boolean) as string[];
   if (provider === "ayet") return [process.env["AYET_POSTBACK_SECRET"]].filter(Boolean) as string[];
-  if (provider === "tapjoy") return [process.env["TAPJOY_SECRET_KEY"]].filter(Boolean) as string[];
+  if (provider === "tapjoy") return [process.env["TAPJOY_SECRET_KEY"], process.env["UNITY_TAPJOY_SECRET_KEY"], process.env["TAPJOY_API_KEY"]].filter(Boolean) as string[];
   if (provider === "cpx") {
     return [
       process.env["CPX_RESEARCH_SECRET"],
       process.env["CPX_RESEARCH_SECURE_HASH"],
+      process.env["CPX_RESEARCH_HASH"],
       process.env["CPX_RESEARCH_API_KEY"],
+      process.env["CPX_RESEARCH_SECURE_TOKEN"],
       process.env["CPX_SECRET"],
+      process.env["CPX_HASH"],
+      process.env["CPX_API_KEY"],
     ].filter(Boolean) as string[];
   }
   return [process.env["PUBSCALE_API_KEY"]].filter(Boolean) as string[];
@@ -99,16 +103,16 @@ function providerConfigured(provider: Provider): { configured: boolean; reason?:
     return { configured: true };
   }
   if (provider === "tapjoy") {
-    return process.env["TAPJOY_APP_ID"] && providerSecrets(provider).length > 0
+    return (process.env["TAPJOY_APP_ID"] || process.env["UNITY_TAPJOY_APP_ID"]) && providerSecrets(provider).length > 0
       ? { configured: true }
       : { configured: false, reason: "Tapjoy app ID/secret missing" };
   }
   if (provider === "cpx") {
-    if (!process.env["CPX_RESEARCH_APP_ID"] && !process.env["CPX_RESEARCH_APP_KEY"]) {
-      return { configured: false, reason: "CPX_RESEARCH_APP_ID or CPX_RESEARCH_APP_KEY missing" };
+    if (!process.env["CPX_RESEARCH_APP_ID"] && !process.env["CPX_RESEARCH_APP_KEY"] && !process.env["CPX_APP_ID"] && !process.env["CPX_APP_KEY"]) {
+      return { configured: false, reason: "CPX_RESEARCH_APP_ID/CPX_APP_ID or CPX_RESEARCH_APP_KEY/CPX_APP_KEY missing" };
     }
     if (providerSecrets(provider).length === 0) {
-      return { configured: false, reason: "CPX_RESEARCH_SECRET, CPX_RESEARCH_SECURE_HASH, or CPX_RESEARCH_API_KEY missing" };
+      return { configured: false, reason: "CPX secret/hash/API key missing" };
     }
     return { configured: true };
   }

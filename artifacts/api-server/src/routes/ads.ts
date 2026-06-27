@@ -14,6 +14,14 @@ function envValue(name: string) {
   return String(process.env[name] ?? "").trim();
 }
 
+function firstEnv(names: string[]) {
+  for (const name of names) {
+    const value = envValue(name);
+    if (value) return value;
+  }
+  return "";
+}
+
 const unityRequestSchema = z.object({
   placementId: z.string().optional().nullable(),
 });
@@ -55,8 +63,8 @@ router.post("/unity/interstitial-shown", requireFirebaseAuth, async (req: Reques
       return;
     }
 
-    const gameId = envValue("UNITY_ANDROID_GAME_ID");
-    const configuredPlacementId = envValue("UNITY_INTERSTITIAL_PLACEMENT_ID");
+    const gameId = firstEnv(["UNITY_ANDROID_GAME_ID", "UNITY_GAME_ID", "UNITY_APP_ID"]);
+    const configuredPlacementId = firstEnv(["UNITY_INTERSTITIAL_PLACEMENT_ID", "UNITY_INTERSTITIAL_ANDROID_PLACEMENT_ID"]) || "Interstitial_Android";
     if (!gameId || !configuredPlacementId) {
       res.status(503).json({
         success: false,

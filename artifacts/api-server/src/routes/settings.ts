@@ -34,6 +34,18 @@ function truthyEnv(name: string) {
   return Boolean(envValue(name));
 }
 
+function firstEnv(names: string[]) {
+  for (const name of names) {
+    const value = envValue(name);
+    if (value) return value;
+  }
+  return "";
+}
+
+function hasAnyEnv(names: string[]) {
+  return names.some((name) => truthyEnv(name));
+}
+
 function getPublicBaseUrl(req: Request): string {
   const explicit = envValue("PUBLIC_BASE_URL") || envValue("APP_PUBLIC_URL");
   if (explicit) return explicit.replace(/\/$/, "");
@@ -62,10 +74,10 @@ function disabled(provider: ProviderKey, reason: string, callbackUrl?: string): 
   return { enabled: false, provider, launchType: "disabled", callbackUrl, reason };
 }
 
-function launchTemplate(name: string) {
-  const value = envValue(name);
+function launchTemplate(names: string | string[], userParam = "user_id") {
+  const value = firstEnv(Array.isArray(names) ? names : [names]);
   if (!value) return "";
-  return value.includes("{deviceId}") ? value : `${value}${value.includes("?") ? "&" : "?"}user_id={deviceId}`;
+  return value.includes("{deviceId}") ? value : `${value}${value.includes("?") ? "&" : "?"}${userParam}={deviceId}`;
 }
 
 function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
@@ -83,11 +95,16 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
       }
     : disabled("monlix", "Requires MONLIX_APP_ID plus MONLIX_API_SECRET or MONLIX_SECRET.", callbackUrls.monlix);
 
-  const tapjoyAppId = envValue("TAPJOY_APP_ID");
-  const tapjoySdkKey = envValue("TAPJOY_SDK_KEY") || envValue("TAPJOY_WEB_SDK_KEY");
-  const tapjoyTemplate = launchTemplate("TAPJOY_OFFERWALL_URL_TEMPLATE");
+  const tapjoyAppId = firstEnv(["TAPJOY_APP_ID", "UNITY_TAPJOY_APP_ID"]);
+  const tapjoySdkKey = firstEnv(["TAPJOY_SDK_KEY", "TAPJOY_WEB_SDK_KEY", "UNITY_TAPJOY_SDK_KEY", "UNITY_TAPJOY_OFFERWALL_SDK_KEY"]);
+  const tapjoyTemplate = launchTemplate([
+    "TAPJOY_OFFERWALL_URL_TEMPLATE",
+    "TAPJOY_OFFERWALL_URL",
+    "UNITY_TAPJOY_OFFERWALL_URL_TEMPLATE",
+    "UNITY_TAPJOY_OFFERWALL_URL",
+  ]);
   const tapjoyLaunchUrl = tapjoyTemplate || (tapjoySdkKey ? `https://rewards.unity.com/owp/web/link/${encodeURIComponent(tapjoySdkKey)}/u/{deviceId}` : "");
-  const tapjoyReady = Boolean(tapjoyAppId && truthyEnv("TAPJOY_SECRET_KEY") && tapjoyLaunchUrl);
+  const tapjoyReady = Boolean(tapjoyAppId && hasAnyEnv(["TAPJOY_SECRET_KEY", "UNITY_TAPJOY_SECRET_KEY", "TAPJOY_API_KEY"]) && tapjoyLaunchUrl);
   const tapjoyItem: ProviderLaunchItem = tapjoyReady
     ? {
         enabled: true,
@@ -100,7 +117,7 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
       }
     : disabled(
         "tapjoy",
-        "Requires TAPJOY_APP_ID, TAPJOY_SECRET_KEY, and either TAPJOY_SDK_KEY or TAPJOY_OFFERWALL_URL_TEMPLATE with {deviceId}.",
+        "Requires TAPJOY_APP_ID/UNITY_TAPJOY_APP_ID, TAPJOY_SECRET_KEY/UNITY_TAPJOY_SECRET_KEY, and either TAPJOY_SDK_KEY or TAPJOY_OFFERWALL_URL_TEMPLATE with {deviceId}.",
         callbackUrls.tapjoy,
       );
 
@@ -139,11 +156,25 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
       }
     : disabled("pubscale", "Requires PUBSCALE_APP_ID, PUBSCALE_API_KEY, and PUBSCALE_OFFERWALL_URL_TEMPLATE with {deviceId}.", callbackUrls.pubscale);
 
-  const cpxAppId = envValue("CPX_RESEARCH_APP_ID") || envValue("CPX_RESEARCH_APP_KEY");
-  const cpxLaunchUrl = launchTemplate("CPX_RESEARCH_OFFERWALL_URL_TEMPLATE");
+  const cpxAppId = firstEnv(["CPX_RESEARCH_APP_ID", "CPX_RESEARCH_APP_KEY", "CPX_APP_ID", "CPX_APP_KEY"]);
+  const cpxLaunchUrl = launchTemplate([
+    "CPX_RESEARCH_OFFERWALL_URL_TEMPLATE",
+    "CPX_RESEARCH_OFFERWALL_URL",
+    "CPX_OFFERWALL_URL_TEMPLATE",
+    "CPX_OFFERWALL_URL",
+  ], "ext_user_id");
   const cpxReady = Boolean(
     cpxAppId
-      && (truthyEnv("CPX_RESEARCH_SECRET") || truthyEnv("CPX_RESEARCH_SECURE_HASH") || truthyEnv("CPX_RESEARCH_API_KEY") || truthyEnv("CPX_SECRET"))
+      && hasAnyEnv([
+        "CPX_RESEARCH_SECRET",
+        "CPX_RESEARCH_SECURE_HASH",
+        "CPX_RESEARCH_HASH",
+        "CPX_RESEARCH_API_KEY",
+        "CPX_RESEARCH_SECURE_TOKEN",
+        "CPX_SECRET",
+        "CPX_HASH",
+        "CPX_API_KEY",
+      ])
       && cpxLaunchUrl,
   );
   const cpxItem: ProviderLaunchItem = cpxReady
@@ -157,15 +188,21 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
       }
     : disabled(
         "cpx",
-        "Requires CPX_RESEARCH_APP_ID or CPX_RESEARCH_APP_KEY, CPX_RESEARCH_SECRET/SECURE_HASH/API_KEY, and CPX_RESEARCH_OFFERWALL_URL_TEMPLATE with {deviceId}.",
+        "Requires CPX_RESEARCH_APP_ID/CPX_APP_ID, CPX secret/hash/API key, and CPX_RESEARCH_OFFERWALL_URL_TEMPLATE or CPX_OFFERWALL_URL with {deviceId}.",
         callbackUrls.cpx,
       );
 
-  const unityGameId = envValue("UNITY_ANDROID_GAME_ID");
-  const unityInterstitialPlacement = envValue("UNITY_INTERSTITIAL_PLACEMENT_ID");
-  const unityRewardedPlacement = envValue("UNITY_REWARDED_PLACEMENT_ID");
+  const unityGameId = firstEnv(["UNITY_ANDROID_GAME_ID", "UNITY_GAME_ID", "UNITY_APP_ID"]);
+  const unityInterstitialPlacement = firstEnv(["UNITY_INTERSTITIAL_PLACEMENT_ID", "UNITY_INTERSTITIAL_ANDROID_PLACEMENT_ID"]) || "Interstitial_Android";
+  const unityRewardedPlacement = firstEnv(["UNITY_REWARDED_PLACEMENT_ID", "UNITY_REWARDED_ANDROID_PLACEMENT_ID"]) || "Rewarded_Android";
   const unityGateReady = Boolean(unityGameId && unityInterstitialPlacement);
-  const unityRewardedReady = Boolean(unityGameId && unityRewardedPlacement && truthyEnv("UNITY_SERVER_SIDE_VERIFICATION_SECRET"));
+  const unityRewardedReady = Boolean(unityGameId && unityRewardedPlacement && hasAnyEnv(["UNITY_SERVER_SIDE_VERIFICATION_SECRET", "UNITY_REWARDED_SSV_SECRET"]));
+
+  const admobAppId = firstEnv(["ADMOB_ANDROID_APP_ID", "ADMOB_APP_ID"]);
+  const admobRewardedAdUnitId = firstEnv(["ADMOB_REWARDED_AD_UNIT_ID", "ADMOB_REWARDED_UNIT_ID"]);
+  const admobInterstitialAdUnitId = firstEnv(["ADMOB_INTERSTITIAL_AD_UNIT_ID", "ADMOB_INTERSTITIAL_UNIT_ID"]);
+  const admobBannerAdUnitId = firstEnv(["ADMOB_BANNER_AD_UNIT_ID", "ADMOB_BANNER_UNIT_ID"]);
+  const admobReady = Boolean(admobAppId && (admobRewardedAdUnitId || admobInterstitialAdUnitId || admobBannerAdUnitId));
 
   return {
     gameTasks: monlixItem,
@@ -185,7 +222,7 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
         }
       : disabled(
           "unity",
-          "Rewarded Energy needs UNITY_ANDROID_GAME_ID, UNITY_REWARDED_PLACEMENT_ID, and server-side verification secret before it can give Energy safely.",
+          "Rewarded Energy needs UNITY_ANDROID_GAME_ID/UNITY_GAME_ID, UNITY_REWARDED_PLACEMENT_ID/UNITY_REWARDED_ANDROID_PLACEMENT_ID, and UNITY_SERVER_SIDE_VERIFICATION_SECRET/UNITY_REWARDED_SSV_SECRET before it can give Energy safely.",
         ),
     dailyGameAdGate: unityGateReady
       ? {
@@ -197,7 +234,19 @@ function buildProviderLaunchStatus(callbackUrls: ProviderCallbackUrls) {
           callbackUrl: callbackUrls.unity,
           reason: "After 5 spins and 5 scratches, show one Unity interstitial ad and then record it here.",
         }
-      : disabled("unity", "Required game-session ad needs UNITY_ANDROID_GAME_ID and UNITY_INTERSTITIAL_PLACEMENT_ID.", callbackUrls.unity),
+      : disabled("unity", "Required game-session ad needs UNITY_ANDROID_GAME_ID/UNITY_GAME_ID and UNITY_INTERSTITIAL_PLACEMENT_ID/UNITY_INTERSTITIAL_ANDROID_PLACEMENT_ID.", callbackUrls.unity),
+    adMediation: {
+      enabled: admobReady,
+      provider: "admob",
+      launchType: "native",
+      publicAppId: admobAppId || undefined,
+      rewardedAdUnitId: admobRewardedAdUnitId || undefined,
+      interstitialAdUnitId: admobInterstitialAdUnitId || undefined,
+      bannerAdUnitId: admobBannerAdUnitId || undefined,
+      reason: admobReady
+        ? "AdMob app ID and at least one ad unit ID are configured for store-build mediation."
+        : "AdMob mediation is waiting for ADMOB_ANDROID_APP_ID plus at least one ad unit ID.",
+    },
   };
 }
 

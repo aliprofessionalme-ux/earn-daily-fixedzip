@@ -80,6 +80,16 @@ If Tapjoy gives a specific web offerwall link, set:
 TAPJOY_OFFERWALL_URL_TEMPLATE=https://provider-launch-url.example/path?user_id={deviceId}
 ```
 
+Accepted aliases in the backend:
+
+```env
+UNITY_TAPJOY_APP_ID=
+UNITY_TAPJOY_SECRET_KEY=
+UNITY_TAPJOY_SDK_KEY=
+UNITY_TAPJOY_OFFERWALL_URL_TEMPLATE=
+UNITY_TAPJOY_OFFERWALL_URL=
+```
+
 ### ayeT
 
 Needed:
@@ -133,6 +143,19 @@ CPX_RESEARCH_COINS_PER_USD=5000
 
 CPX Research launch URL and postback field names can vary by account. Paste the exact offerwall URL from the CPX dashboard and keep `{deviceId}` where CPX asks for the external/user ID. Set the CPX postback/callback URL to `/api/webhooks/cpx`.
 
+Accepted aliases in the backend:
+
+```env
+CPX_APP_ID=
+CPX_APP_KEY=
+CPX_RESEARCH_HASH=
+CPX_RESEARCH_SECURE_TOKEN=
+CPX_HASH=
+CPX_API_KEY=
+CPX_OFFERWALL_URL_TEMPLATE=
+CPX_OFFERWALL_URL=
+```
+
 ### Unity Ads
 
 For the mandatory ad after 5 spins and 5 scratches:
@@ -151,6 +174,27 @@ UNITY_SERVER_SIDE_VERIFICATION_SECRET=
 ```
 
 Important: Unity ads cannot truly show inside Replit web preview or Expo Go without the native Unity Ads SDK. The backend now records the required interstitial view, and the mobile code is ready for the native APK hook. In the real APK, show the Unity interstitial first, then call the backend record endpoint after the ad closes.
+
+### AdMob Mediation
+
+AdMob mediation is a store-build step, not a web-preview step. Keep these ready for launch:
+
+```env
+ADMOB_ANDROID_APP_ID=
+ADMOB_REWARDED_AD_UNIT_ID=
+ADMOB_INTERSTITIAL_AD_UNIT_ID=
+ADMOB_BANNER_AD_UNIT_ID=
+ADMOB_MEDIATION_PROVIDER=unity|admob
+```
+
+Recommended launch order:
+
+1. Use Unity offerwall / interstitial / rewarded flow for current APK build.
+2. Add AdMob account, app IDs, and ad unit IDs before Play Store release.
+3. Turn on mediation in AdMob or the mediation layer you choose, then switch the provider priority server-side only when live ad units exist.
+4. Keep Unity rewarded energy behind server-side verification so users cannot fake rewards.
+
+The `/api/settings` response now includes an `adMediation` block so you can quickly confirm whether the AdMob app ID and at least one ad unit ID are present in your environment.
 
 ## What Changed in App Behavior
 
