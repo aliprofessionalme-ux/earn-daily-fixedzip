@@ -284,6 +284,7 @@ router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
 
   try {
     const docRef = await getFirestoreDb().collection("supportTickets").add({
+      ticketId: null,
       deviceId: String(req.params.deviceId),
       issueType: parsed.data.issueType,
       message: parsed.data.message,
@@ -291,6 +292,7 @@ router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    await docRef.set({ ticketId: docRef.id }, { merge: true });
     const snap = await docRef.get();
     res.json({ success: true, ...serializeDoc(snap) });
   } catch (err) {
