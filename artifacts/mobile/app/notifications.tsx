@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useUser } from "@/contexts/UserContext";
@@ -22,6 +22,10 @@ type SupportTicketWithReply = SupportTicket & {
   adminReply?: string | null;
   lastReplyAt?: string | null;
   resolutionNotes?: string | null;
+  adminAttachmentUrl?: string | null;
+  adminAttachmentName?: string | null;
+  adminAttachmentMimeType?: string | null;
+  adminAttachmentExpiresAt?: string | null;
 };
 
 interface NoticeItem {
@@ -32,6 +36,8 @@ interface NoticeItem {
   date: string;
   priority: NoticePriority;
   icon: React.ComponentProps<typeof Feather>["name"];
+  actionLabel?: string | null;
+  actionUrl?: string | null;
 }
 
 const FILTERS: Array<{ id: NotificationFilter; label: string; icon: React.ComponentProps<typeof Feather>["name"] }> = [
@@ -54,6 +60,12 @@ function formatDate(value?: string | null): string {
   } catch {
     return "-";
   }
+}
+
+function attachmentIsLive(expiresAt?: string | null) {
+  if (!expiresAt) return false;
+  const time = new Date(expiresAt).getTime();
+  return Number.isFinite(time) && time > Date.now();
 }
 
 function withdrawalNotice(item: WithdrawalDocument): NoticeItem {
@@ -117,6 +129,7 @@ function withdrawalNotice(item: WithdrawalDocument): NoticeItem {
 function supportNotices(ticket: SupportTicketWithReply): NoticeItem[] {
   const notices: NoticeItem[] = [];
   const adminReply = ticket.adminReply?.trim();
+  const attachmentLive = attachmentIsLive(ticket.adminAttachmentExpiresAt);
   if (adminReply) {
     notices.push({
       id: `support-reply-${ticket.ticketId}`,
@@ -126,6 +139,19 @@ function supportNotices(ticket: SupportTicketWithReply): NoticeItem[] {
       date: ticket.lastReplyAt || ticket.updatedAt || ticket.createdAt,
       priority: "good",
       icon: "corner-up-left",
+    });
+  }
+  if (ticket.adminAttachmentUrl && attachmentLive) {
+    notices.push({
+      id: `support-attachment-${ticket.ticketId}`,
+      filter: "support",
+      title: "Attachment ready to download",
+      message: ticket.adminAttachmentName || "Your support reply includes a file attachment.",
+      date: ticket.lastReplyAt || ticket.updatedAt || ticket.createdAt,
+      priority: "good",
+      icon: "download",
+      actionLabel: "Download",
+      actionUrl: ticket.adminAttachmentUrl,
     });
   }
   if (ticket.status === "closed") {
@@ -313,6 +339,12 @@ export default function NotificationsScreen() {
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
                   <Text style={[styles.cardMessage, { color: colors.mutedForeground }]}>{item.message}</Text>
+                  {item.actionUrl && item.actionLabel ? (
+                    <Pressable onPress={() => void Linking.openURL(item.actionUrl!)} style={[styles.actionButton, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "40" }]}> 
+                      <Feather name="download" size={13} color={colors.gold} />
+                      <Text style={[styles.actionText, { color: colors.foreground }]}>{item.actionLabel}</Text>
+                    </Pressable>
+                  ) : null}
                   <Text style={[styles.cardDate, { color: colors.mutedForeground }]}>{formatDate(item.date)}</Text>
                 </View>
               </View>
@@ -342,4 +374,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 18 },
   cardMessage: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17, marginTop: 3 },
   cardDate: { fontFamily: "Inter_500Medium", fontSize: 11, lineHeight: 15, marginTop: 6 },
+  actionButton: { marginTop: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
+  actionText: { fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 16 },
 });
