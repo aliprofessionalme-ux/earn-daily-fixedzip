@@ -44,6 +44,18 @@ function attachmentIsActive(expiresAt: unknown) {
   }
 }
 
+function toIsoString(value: unknown) {
+  try {
+    const timestamp = value as { toDate?: () => Date } | null | undefined;
+    const date = timestamp && typeof timestamp.toDate === "function"
+      ? timestamp.toDate()
+      : new Date(String(value ?? ""));
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 async function postExpoPush(messages: Array<Record<string, unknown>>) {
   const response = await fetch(EXPO_PUSH_URL, {
     method: "POST",
@@ -103,7 +115,7 @@ export async function unregisterPushToken(deviceId: string, token: string) {
     updatedAt: nowTs(),
   }, { merge: true });
 
-  return { success: true, message: "Push token disabled." }
+  return { success: true, message: "Push token disabled." };
 }
 
 export async function sendPushToUser(deviceId: string, message: PushMessageInput) {
@@ -215,7 +227,7 @@ export async function notifySupportTicket(ticketId: string, kind: "reply" | "clo
       adminAttachmentUrl: attachmentActive ? attachmentUrl : null,
       adminAttachmentName: attachmentActive ? attachmentName : null,
       adminAttachmentMimeType: attachmentActive ? attachmentMimeType : null,
-      adminAttachmentExpiresAt: attachmentActive ? String(attachmentExpiresAt ?? "") : null,
+      adminAttachmentExpiresAt: attachmentActive ? toIsoString(attachmentExpiresAt) : null,
     },
   });
 }
