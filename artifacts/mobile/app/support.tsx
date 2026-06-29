@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SUPPORT_EMAIL } from "@/constants/brand";
 import { useColors } from "@/hooks/useColors";
@@ -14,9 +14,21 @@ const issueTypes = ["Withdrawal", "Reward missing", "Offerwall", "Account", "Oth
 type SupportTicketWithReply = SupportTicket & {
   adminReply?: string | null;
   lastReplyAt?: string | null;
+  adminAttachmentUrl?: string | null;
+  adminAttachmentName?: string | null;
+  adminAttachmentMimeType?: string | null;
+  adminAttachmentExpiresAt?: string | null;
 };
 
 function formatDate(ts: string) { try { return new Date(ts).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" }); } catch { return "-"; } }
+
+function formatDateTime(ts?: string | null) { try { return ts ? new Date(ts).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "-"; } catch { return "-"; } }
+
+function attachmentIsLive(expiresAt?: string | null) {
+  if (!expiresAt) return false;
+  const time = new Date(expiresAt).getTime();
+  return Number.isFinite(time) && time > Date.now();
+}
 
 export default function SupportScreen() {
   const colors = useColors();
@@ -129,6 +141,7 @@ export default function SupportScreen() {
             renderItem={({ item }) => {
               const adminReply = item.adminReply?.trim();
               const statusColor = item.status === "closed" ? colors.mutedForeground : item.status === "replied" ? colors.green : colors.gold;
+              const attachmentLive = attachmentIsLive(item.adminAttachmentExpiresAt);
               return (
                 <View style={[styles.ticket, { backgroundColor: colors.card, borderColor: colors.border }]}> 
                   <View style={styles.ticketTop}>
@@ -144,6 +157,25 @@ export default function SupportScreen() {
                       </View>
                       <Text style={[styles.replyText, { color: colors.foreground }]}>{adminReply}</Text>
                       {item.lastReplyAt ? <Text style={[styles.replyDate, { color: colors.mutedForeground }]}>Replied: {formatDate(item.lastReplyAt)}</Text> : null}
+                      {item.adminAttachmentUrl ? (
+                        attachmentLive ? (
+                          <Pressable onPress={() => void Linking.openURL(item.adminAttachmentUrl!)} style={[styles.downloadButton, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "40" }]}> 
+                            <Feather name="download" size={14} color={colors.gold} />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={[styles.downloadTitle, { color: colors.foreground }]} numberOfLines={1}>{item.adminAttachmentName || "Attachment"}</Text>
+                              <Text style={[styles.downloadMeta, { color: colors.mutedForeground }]}>Available until {formatDateTime(item.adminAttachmentExpiresAt)}</Text>
+                            </View>
+                          </Pressable>
+                        ) : (
+                          <View style={[styles.downloadButton, { backgroundColor: colors.destructive + "12", borderColor: colors.destructive + "28" }]}> 
+                            <Feather name="clock" size={14} color={colors.destructive} />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={[styles.downloadTitle, { color: colors.foreground }]} numberOfLines={1}>{item.adminAttachmentName || "Attachment"}</Text>
+                              <Text style={[styles.downloadMeta, { color: colors.mutedForeground }]}>Attachment expired</Text>
+                            </View>
+                          </View>
+                        )
+                      ) : null}
                     </View>
                   ) : null}
                   <Text style={[styles.ticketDate, { color: colors.mutedForeground }]}>Created: {formatDate(item.createdAt)}</Text>
@@ -194,4 +226,7 @@ const styles = StyleSheet.create({
   replyTitle: { fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 16 },
   replyText: { fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 18 },
   replyDate: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15 },
+  downloadButton: { marginTop: 6, borderWidth: 1, borderRadius: 12, padding: 10, flexDirection: "row", alignItems: "center", gap: 8 },
+  downloadTitle: { fontFamily: "Inter_700Bold", fontSize: 12, lineHeight: 16 },
+  downloadMeta: { fontFamily: "Inter_400Regular", fontSize: 10, lineHeight: 14, marginTop: 1 },
 });

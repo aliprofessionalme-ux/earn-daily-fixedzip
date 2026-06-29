@@ -13,6 +13,7 @@ import {
   serializeUser,
   verifyFirebaseToken,
 } from "../services/firebase-admin.js";
+import { cleanupExpiredSupportAttachment } from "../services/supportAttachments.js";
 import { getTaskSlotStatus, unlockExtraTaskSlot } from "../services/taskSlots.js";
 import { startCoinRushGame } from "../services/coinRush.js";
 import { requireFirebaseAuth } from "../middleware/auth.js";
@@ -260,7 +261,14 @@ router.get("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
       .orderBy("createdAt", "desc")
       .limit(40)
       .get();
-    res.json(snap.docs.map((doc) => serializeDoc(doc)));
+
+    const tickets = await Promise.all(snap.docs.map(async (doc) => {
+      const data = { ...doc.data() };
+      const cleared = await cleanupExpiredSupportAttachment(data, doc.ref).catch(() => null);
+      return serializeDoc({ id: doc.id, ...data, ...(cleared ?? {}) });
+    }));
+
+    res.json(tickets);
   } catch (err) {
     req.log.error({ err }, "Error fetching support tickets");
     sendError(res, err, "Unable to fetch support tickets.");
@@ -276,6 +284,7 @@ router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
 
   try {
     const docRef = await getFirestoreDb().collection("supportTickets").add({
+      ticketId: null,
       deviceId: String(req.params.deviceId),
       issueType: parsed.data.issueType,
       message: parsed.data.message,
@@ -283,6 +292,7 @@ router.post("/:deviceId/support", requireFirebaseAuth, async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    await docRef.set({ ticketId: docRef.id }, { merge: true });
     const snap = await docRef.get();
     res.json({ success: true, ...serializeDoc(snap) });
   } catch (err) {
