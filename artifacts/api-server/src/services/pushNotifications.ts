@@ -32,6 +32,18 @@ function cleanText(value: unknown, max = 140): string | null {
   return text.slice(0, max);
 }
 
+function attachmentIsActive(expiresAt: unknown) {
+  try {
+    const timestamp = expiresAt as { toDate?: () => Date } | null | undefined;
+    const date = timestamp && typeof timestamp.toDate === "function"
+      ? timestamp.toDate()
+      : new Date(String(expiresAt ?? ""));
+    return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 async function postExpoPush(messages: Array<Record<string, unknown>>) {
   const response = await fetch(EXPO_PUSH_URL, {
     method: "POST",
@@ -91,7 +103,7 @@ export async function unregisterPushToken(deviceId: string, token: string) {
     updatedAt: nowTs(),
   }, { merge: true });
 
-  return { success: true, message: "Push token disabled." };
+  return { success: true, message: "Push token disabled." }
 }
 
 export async function sendPushToUser(deviceId: string, message: PushMessageInput) {
@@ -183,10 +195,28 @@ export async function notifySupportTicket(ticketId: string, kind: "reply" | "clo
   const deviceId = String(data.deviceId ?? "");
   if (!deviceId) return { success: false, sent: 0, message: "Ticket has no deviceId." };
 
+  const attachmentUrl = String(data.adminAttachmentUrl ?? "").trim();
+  const attachmentName = String(data.adminAttachmentName ?? "").trim();
+  const attachmentMimeType = String(data.adminAttachmentMimeType ?? "").trim();
+  const attachmentExpiresAt = data.adminAttachmentExpiresAt ?? null;
+  const attachmentActive = Boolean(attachmentUrl && attachmentName && attachmentIsActive(attachmentExpiresAt));
+  const fallbackBody = kind === "reply" ? "Admin replied to your support ticket." : "Your support ticket has been closed.";
+  const body = cleanText(bodyText ?? data.adminReply ?? data.resolutionNotes, 180) || fallbackBody;
+
   return sendPushToUser(deviceId, {
     title: kind === "reply" ? "Support replied" : "Support ticket closed",
-    body: cleanText(bodyText ?? data.adminReply ?? data.resolutionNotes, 180) || (kind === "reply" ? "Admin replied to your support ticket." : "Your support ticket has been closed."),
-    data: { type: "support", ticketId, status: kind },
+    body: attachmentActive && kind === "reply" ? `${body} Attachment is ready to download.` : body,
+    data: {
+      type: "support",
+      ticketId,
+      status: kind,
+      adminReply: cleanText(data.adminReply, 500) ?? null,
+      resolutionNotes: cleanText(data.resolutionNotes, 500) ?? null,
+      adminAttachmentUrl: attachmentActive ? attachmentUrl : null,
+      adminAttachmentName: attachmentActive ? attachmentName : null,
+      adminAttachmentMimeType: attachmentActive ? attachmentMimeType : null,
+      adminAttachmentExpiresAt: attachmentActive ? String(attachmentExpiresAt ?? "") : null,
+    },
   });
 }
 
